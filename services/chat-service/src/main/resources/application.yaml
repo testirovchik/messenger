@@ -1,3 +1,20 @@
 spring:
   application:
     name: messenger
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chatdb
+    driver-class-name: org.postgresql.Driver
+    username: erik
+    password: erik123*
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: change-this-to-a-random-256-bit-secret-key-in-production
+  expiration-ms: 86400000

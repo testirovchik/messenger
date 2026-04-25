@@ -62,7 +62,7 @@ public class AuthController {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new InvalidEmailOrPasswordException("Invalid email or password");
         }
-        String token = jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user.getId().toString());
         return new LoginResponse(token);
     }
 }
