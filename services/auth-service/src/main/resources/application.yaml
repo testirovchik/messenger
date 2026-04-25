@@ -13,3 +13,7 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+jwt:
+  secret: change-this-to-a-random-256-bit-secret-key-in-production
+  expiration-ms: 86400000

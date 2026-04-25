@@ -1,11 +1,13 @@
 package com.erik.authservice.controller;
 
 import com.erik.authservice.dto.LoginRequest;
+import com.erik.authservice.dto.LoginResponse;
 import com.erik.authservice.dto.RegistrationRequest;
 import com.erik.authservice.exception.InvalidEmailOrPasswordException;
 import com.erik.authservice.exception.UserAlreadyExistsException;
 import com.erik.authservice.model.User;
 import com.erik.authservice.repository.UserRepository;
+import com.erik.authservice.service.JwtService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,10 +23,12 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/register")
@@ -51,14 +55,14 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public String login(@Valid @RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(
                 () -> new InvalidEmailOrPasswordException("Invalid email or password")
         );
-        boolean isMatch = passwordEncoder.matches(request.getPassword(), user.getPassword());
-        if(!isMatch) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new InvalidEmailOrPasswordException("Invalid email or password");
         }
-        return "Login Successful";
+        String token = jwtService.generateToken(user.getEmail());
+        return new LoginResponse(token);
     }
 }
