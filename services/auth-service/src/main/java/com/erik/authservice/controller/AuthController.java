@@ -1,6 +1,8 @@
 package com.erik.authservice.controller;
 
+import com.erik.authservice.dto.LoginRequest;
 import com.erik.authservice.dto.RegistrationRequest;
+import com.erik.authservice.exception.InvalidEmailOrPasswordException;
 import com.erik.authservice.exception.UserAlreadyExistsException;
 import com.erik.authservice.model.User;
 import com.erik.authservice.repository.UserRepository;
@@ -46,5 +48,17 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userRepository.save(user);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/login")
+    public String login(@Valid @RequestBody LoginRequest request) {
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(
+                () -> new InvalidEmailOrPasswordException("Invalid email or password")
+        );
+        boolean isMatch = passwordEncoder.matches(request.getPassword(), user.getPassword());
+        if(!isMatch) {
+            throw new InvalidEmailOrPasswordException("Invalid email or password");
+        }
+        return "Login Successful";
     }
 }
