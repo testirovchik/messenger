@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
+import './ChatRoom.css';
 
 const ChatRoom = () => {
     const { chatId } = useParams();
@@ -63,7 +64,10 @@ const ChatRoom = () => {
 
         socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
-            setMessages((prev) => [...prev, message]);
+            // Only add if it's for this chat
+            if (String(message.chatId) === String(chatId)) {
+                setMessages((prev) => [...prev, message]);
+            }
         };
 
         socket.onclose = () => console.log("WebSocket closed");
@@ -85,6 +89,7 @@ const ChatRoom = () => {
 
             ws.send(JSON.stringify(messagePayload));
 
+            // Optimistic update
             setMessages((prev) => [...prev, {
                 content: messageInput,
                 senderId: myUserId,
@@ -94,74 +99,24 @@ const ChatRoom = () => {
         }
     };
 
-    const containerStyle = {
-        display: 'flex',
-        flexDirection: 'column',
-        height: '90vh',
-        maxWidth: '800px',
-        margin: '10px auto',
-        border: '1px solid #ddd',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        backgroundColor: '#fff'
-    };
-
-    const headerStyle = {
-        padding: '15px 20px',
-        borderBottom: '1px solid #eee',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-    };
-
-    const chatBoxStyle = {
-        flex: 1,
-        overflowY: 'auto',
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        backgroundColor: '#f0f2f5'
-    };
-
-    const messageWrapperStyle = (isMe) => ({
-        display: 'flex',
-        justifyContent: isMe ? 'flex-end' : 'flex-start'
-    });
-
-    const messageBubbleStyle = (isMe) => ({
-        maxWidth: '70%',
-        padding: '10px 15px',
-        borderRadius: '18px',
-        backgroundColor: isMe ? '#0084ff' : '#fff',
-        color: isMe ? '#fff' : '#000',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-        fontSize: '15px'
-    });
-
-    const timeStyle = (isMe) => ({
-        fontSize: '10px',
-        color: isMe ? 'rgba(255,255,255,0.7)' : '#999',
-        marginTop: '4px',
-        textAlign: 'right'
-    });
-
     return (
-        <div style={containerStyle}>
-            <div style={headerStyle}>
-                <button onClick={() => navigate('/chats')}>← Back</button>
-                <h3 style={{ margin: 0 }}>Chat #{chatId}</h3>
-                <div style={{ width: '40px' }}></div>
+        <div className="chat-room-container">
+            <div className="chat-header">
+                <button className="back-button" onClick={() => navigate('/chats')}>
+                    &larr;
+                </button>
+                <h3 className="chat-header-title">Chat #{chatId}</h3>
+                <div style={{ width: '32px' }}></div>
             </div>
 
-            <div style={chatBoxStyle}>
+            <div className="chat-messages">
                 {messages.map((msg, index) => {
                     const isMe = String(msg.senderId) === String(myUserId);
                     return (
-                        <div key={index} style={messageWrapperStyle(isMe)}>
-                            <div style={messageBubbleStyle(isMe)}>
-                                <div>{msg.content}</div>
-                                <div style={timeStyle(isMe)}>
+                        <div key={index} className={`message-wrapper ${isMe ? 'me' : 'others'}`}>
+                            <div className="message-bubble">
+                                <div className="message-content">{msg.content}</div>
+                                <div className="message-time">
                                     {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                 </div>
                             </div>
@@ -171,19 +126,15 @@ const ChatRoom = () => {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div style={{ padding: '15px', borderTop: '1px solid #eee', display: 'flex', gap: '10px' }}>
+            <div className="chat-input-area">
                 <input
-                    style={{ flex: 1, padding: '10px 15px', borderRadius: '20px', border: '1px solid #ddd', outline: 'none' }}
                     type="text"
-                    placeholder="Aa"
+                    placeholder="Type a message..."
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                 />
-                <button
-                    style={{ padding: '8px 20px', borderRadius: '20px', border: 'none', backgroundColor: '#0084ff', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
-                    onClick={sendMessage}
-                >
+                <button className="send-button" onClick={sendMessage}>
                     Send
                 </button>
             </div>
