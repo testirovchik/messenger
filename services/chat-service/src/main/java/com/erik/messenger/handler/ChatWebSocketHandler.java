@@ -60,6 +60,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             // Broadcast to members
             List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
             for (ChatMember member : members) {
+                // Skip sending back to the sender
+                if (member.getUserId().equals(senderId)) {
+                    continue;
+                }
+
                 WebSocketSession recipientSession = activeSessions.get(member.getUserId());
                 if (recipientSession != null && recipientSession.isOpen()) {
                     recipientSession.sendMessage(new TextMessage(message.getPayload()));

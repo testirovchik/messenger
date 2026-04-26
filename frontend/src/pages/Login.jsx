@@ -32,15 +32,16 @@ export default function Login() {
         // Store the JWT in localStorage
         localStorage.setItem('chat_token', token)
 
-        // Redirect to chat room
-        navigate('/chat')
+        // Redirect to chat list page
+        navigate('/chats')
         return
       }
 
-      const errorData = await res.json().catch(() => ({}))
+      // If we get an error response, try to parse it
+      const errorData = await res.json().catch(() => ({ message: 'Invalid email or password.' }))
       setError(errorData.message || 'Invalid email or password.')
     } catch (err) {
-      console.error(err)
+      console.error('Login error:', err)
       setError('Network error. Please try again.')
     } finally {
       setLoading(false)
