@@ -8,6 +8,9 @@ import com.erik.messenger.repository.ChatRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class ChatService {
 
@@ -56,5 +59,13 @@ public class ChatService {
         member.setUserId(userId);
         member.setRole(role != null ? role : "MEMBER");
         return chatMemberRepository.save(member);
+    }
+
+    public List<Chat> getUserChats(Long userId) {
+        List<ChatMember> memberships = chatMemberRepository.findByUserId(userId);
+        List<Long> chatIds = memberships.stream()
+                .map(ChatMember::getChatId)
+                .collect(Collectors.toList());
+        return chatRepository.findAllById(chatIds);
     }
 }

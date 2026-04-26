@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -18,4 +19,6 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
            "AND cm2.userId = :userB " +
            "AND c.type = 'PRIVATE'")
     Optional<Long> findPrivateChatBetweenUsers(@Param("userA") Long userA, @Param("userB") Long userB);
+
+    List<ChatMember> findByUserId(Long userId);
 }

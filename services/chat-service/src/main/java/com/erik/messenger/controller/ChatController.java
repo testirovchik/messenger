@@ -7,6 +7,8 @@ import com.erik.messenger.service.JwtService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/chats")
 public class ChatController {
@@ -17,6 +19,13 @@ public class ChatController {
     public ChatController(JwtService jwtService, ChatService chatService) {
         this.jwtService = jwtService;
         this.chatService = chatService;
+    }
+
+    @GetMapping("/my-chats")
+    public ResponseEntity<List<Chat>> getMyChats(@RequestHeader("Authorization") String authHeader) {
+        Long myId = jwtService.extractUserIdFromToken(authHeader);
+        List<Chat> chats = chatService.getUserChats(myId);
+        return ResponseEntity.ok(chats);
     }
 
     @PostMapping("/private")
