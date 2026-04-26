@@ -1,6 +1,7 @@
 package com.erik.messenger.controller;
 
 import com.erik.messenger.model.Chat;
+import com.erik.messenger.model.ChatMember;
 import com.erik.messenger.service.ChatService;
 import com.erik.messenger.service.JwtService;
 import org.springframework.http.ResponseEntity;
@@ -27,5 +28,26 @@ public class ChatController {
         Chat chat = chatService.getOrCreatePrivateChat(myId, partnerId);
 
         return ResponseEntity.ok(chat);
+    }
+
+    @PostMapping("/group")
+    public ResponseEntity<Chat> createGroupChat(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam String title) {
+
+        Long myId = jwtService.extractUserIdFromToken(authHeader);
+        Chat chat = chatService.createGroupChat(myId, title);
+
+        return ResponseEntity.ok(chat);
+    }
+
+    @PostMapping("/{chatId}/members")
+    public ResponseEntity<ChatMember> addMember(
+            @PathVariable Long chatId,
+            @RequestParam Long userId,
+            @RequestParam(required = false, defaultValue = "MEMBER") String role) {
+
+        ChatMember member = chatService.addMemberToChat(chatId, userId, role);
+        return ResponseEntity.ok(member);
     }
 }

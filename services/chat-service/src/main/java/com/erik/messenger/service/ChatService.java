@@ -31,19 +31,30 @@ public class ChatService {
         chat.setType(ChatType.PRIVATE);
         Chat savedChat = chatRepository.save(chat);
 
-        ChatMember memberA = new ChatMember();
-        memberA.setChatId(savedChat.getId());
-        memberA.setUserId(userA);
-        memberA.setRole("MEMBER");
-        
-        ChatMember memberB = new ChatMember();
-        memberB.setChatId(savedChat.getId());
-        memberB.setUserId(userB);
-        memberB.setRole("MEMBER");
-
-        chatMemberRepository.save(memberA);
-        chatMemberRepository.save(memberB);
+        addMemberToChat(savedChat.getId(), userA, "MEMBER");
+        addMemberToChat(savedChat.getId(), userB, "MEMBER");
 
         return savedChat;
+    }
+
+    @Transactional
+    public Chat createGroupChat(Long creatorId, String title) {
+        Chat chat = new Chat();
+        chat.setType(ChatType.GROUP);
+        chat.setChatTitle(title);
+        Chat savedChat = chatRepository.save(chat);
+
+        addMemberToChat(savedChat.getId(), creatorId, "ADMIN");
+
+        return savedChat;
+    }
+
+    @Transactional
+    public ChatMember addMemberToChat(Long chatId, Long userId, String role) {
+        ChatMember member = new ChatMember();
+        member.setChatId(chatId);
+        member.setUserId(userId);
+        member.setRole(role != null ? role : "MEMBER");
+        return chatMemberRepository.save(member);
     }
 }
