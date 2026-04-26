@@ -22,7 +22,7 @@ const ChatRoom = () => {
             return;
         }
 
-        const socket = new WebSocket("ws://localhost:8080/ws-chat");
+        const socket = new WebSocket("ws://localhost:8081/ws-chat");
 
         socket.onopen = () => {
             console.log("Connected to WebSocket");

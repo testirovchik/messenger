@@ -21,4 +21,6 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
     Optional<Long> findPrivateChatBetweenUsers(@Param("userA") Long userA, @Param("userB") Long userB);
 
     List<ChatMember> findByUserId(Long userId);
+
+    List<ChatMember> findByChatId(Long chatId);
 }
