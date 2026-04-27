@@ -15,6 +15,12 @@ public class Message {
 
     private Long senderId;
 
+    @Enumerated(EnumType.STRING)
+    private MessageType type = MessageType.TEXT; // Defaults to TEXT
+
+    public MessageType getType() { return type; }
+    public void setType(MessageType type) { this.type = type; }
+
     @Column(columnDefinition = "TEXT")
     private String content;
 

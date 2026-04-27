@@ -2,6 +2,7 @@ package com.erik.messenger.handler;
 
 import com.erik.messenger.model.ChatMember;
 import com.erik.messenger.model.Message;
+import com.erik.messenger.model.MessageType; // Added import for MessageType
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.MessageRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,9 +25,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final Map<Long, WebSocketSession> activeSessions = new ConcurrentHashMap<>();
 
-    public ChatWebSocketHandler(ChatMemberRepository chatMemberRepository, 
-                                 MessageRepository messageRepository, 
-                                 ObjectMapper objectMapper) {
+    public ChatWebSocketHandler(ChatMemberRepository chatMemberRepository,
+                                MessageRepository messageRepository,
+                                ObjectMapper objectMapper) {
         this.chatMemberRepository = chatMemberRepository;
         this.messageRepository = messageRepository;
         this.objectMapper = objectMapper;
@@ -55,8 +56,12 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             msg.setChatId(chatId);
             msg.setSenderId(senderId);
             msg.setContent(content);
+
+            // --- NEW: Explicitly mark WebSocket messages as TEXT ---
+            msg.setType(MessageType.TEXT);
+
             messageRepository.save(msg);
-            
+
             // Broadcast to members
             List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
             for (ChatMember member : members) {
@@ -69,6 +74,24 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 if (recipientSession != null && recipientSession.isOpen()) {
                     recipientSession.sendMessage(new TextMessage(message.getPayload()));
                 }
+            }
+        }
+    }
+
+    // --- NEW METHOD: Used by MessageController to broadcast image uploads ---
+    public void broadcastMessage(Message message, Object payloadForReact) throws Exception {
+        List<ChatMember> members = chatMemberRepository.findByChatId(message.getChatId());
+
+        // Convert the DTO to a JSON string so it can be sent over the WebSocket
+        String jsonPayload = objectMapper.writeValueAsString(payloadForReact);
+
+        for (ChatMember member : members) {
+            // Notice we do NOT skip the sender here!
+            // The sender needs to receive this so their React app can get the Presigned URL
+            // and render the image they just uploaded.
+            WebSocketSession recipientSession = activeSessions.get(member.getUserId());
+            if (recipientSession != null && recipientSession.isOpen()) {
+                recipientSession.sendMessage(new TextMessage(jsonPayload));
             }
         }
     }
