@@ -1,21 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import api from '../api/axios'; // IMPORTANT: Importing your Axios instance!
+import api from '../api/axios';
 import './TelegramDashboard.css';
 
 const TelegramDashboard = () => {
+    // --- Chat & Message State ---
     const [chats, setChats] = useState([]);
     const [activeChat, setActiveChat] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messageInput, setMessageInput] = useState('');
     const [myUserId, setMyUserId] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isUploading, setIsUploading] = useState(false); // NEW: Upload state
+    const [isUploading, setIsUploading] = useState(false);
     const [ws, setWs] = useState(null);
 
+    // --- Search State ---
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    // --- Refs ---
     const messagesEndRef = useRef(null);
-    const fileInputRef = useRef(null); // NEW: Reference to the hidden file input
+    const fileInputRef = useRef(null);
     const navigate = useNavigate();
 
     const scrollToBottom = () => {
@@ -26,7 +33,7 @@ const TelegramDashboard = () => {
         scrollToBottom();
     }, [messages]);
 
-    // Initial load and Auth check
+    // 1. Initial Load & WebSocket Setup
     useEffect(() => {
         const token = localStorage.getItem('chat_token');
         if (!token) {
@@ -45,7 +52,6 @@ const TelegramDashboard = () => {
 
         const fetchChats = async () => {
             try {
-                // Using your Axios instance to keep things clean!
                 const response = await api.get('/api/chats/my-chats');
                 setChats(response.data);
             } catch (err) {
@@ -82,7 +88,7 @@ const TelegramDashboard = () => {
         return () => socket.close();
     }, [navigate, activeChat?.id]);
 
-    // Fetch messages when active chat changes
+    // 2. Fetch Chat History when Active Chat Changes
     useEffect(() => {
         if (!activeChat) return;
 
@@ -98,6 +104,39 @@ const TelegramDashboard = () => {
         fetchHistory();
     }, [activeChat]);
 
+    // 3. Debounced Search Effect
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setSearchResults([]);
+            setIsSearching(false);
+            return;
+        }
+
+        setIsSearching(true);
+        const timer = setTimeout(async () => {
+            const token = localStorage.getItem('chat_token');
+            try {
+                // We use raw fetch here because it points to the Auth Service (port 8080)
+                // while your Axios instance defaults to the Chat Service (port 8081)
+                const response = await fetch(`http://localhost:8080/api/users/search?query=${searchQuery}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setSearchResults(data);
+                }
+            } catch (err) {
+                console.error('Search error:', err);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 500); // 0.5s Debounce
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // 4. Send Standard Text Message
     const handleSendMessage = () => {
         if (ws && ws.readyState === WebSocket.OPEN && messageInput.trim() && activeChat) {
             const messagePayload = {
@@ -128,12 +167,34 @@ const TelegramDashboard = () => {
         }
     };
 
-    // --- NEW: Handle clicking the paperclip ---
+    // 5. Handle Starting a New Chat from Search
+    const handleUserClick = async (userId) => {
+        try {
+            const response = await api.post(`/api/chats/private?partnerId=${userId}`);
+            const newChat = response.data;
+
+            // Clear search state
+            setSearchQuery('');
+            setSearchResults([]);
+
+            // Add to chat list if it's brand new, then open it
+            setChats(prev => {
+                const exists = prev.find(c => c.id === newChat.id);
+                return exists ? prev : [newChat, ...prev];
+            });
+            setActiveChat(newChat);
+
+        } catch (err) {
+            console.error("Create chat error:", err);
+            alert("Error creating chat");
+        }
+    };
+
+    // 6. Handle Image Uploads
     const handleAttachmentClick = () => {
         fileInputRef.current.click();
     };
 
-    // --- NEW: Handle the actual file upload ---
     const handleFileChange = async (event) => {
         const file = event.target.files[0];
         if (!file || !activeChat) return;
@@ -145,58 +206,88 @@ const TelegramDashboard = () => {
         formData.append('file', file);
 
         try {
-            // Axios automatically sets 'Content-Type': 'multipart/form-data' and the boundary!
             await api.post('/api/messages/upload', formData);
-
-            // Notice we do NOT manually update the `messages` array here!
-            // The backend uploads the image, generates the Presigned URL,
-            // and broadcasts it via WebSocket. Our `socket.onmessage` listener
-            // will catch it instantly and render it!
-
+            // WebSocket will handle displaying the image automatically!
         } catch (error) {
             console.error("Upload failed:", error);
             alert("Failed to send image.");
         } finally {
             setIsUploading(false);
-            event.target.value = null; // Clear the input so you can upload the same file again
+            event.target.value = null; // Reset input
         }
     };
 
-    if (loading) return <div className="loading">Connecting to Telegram...</div>;
+    if (loading) return <div className="loading" style={{padding: '20px', textAlign: 'center'}}>Connecting to Telegram...</div>;
 
     return (
         <div className="telegram-container">
-            {/* Sidebar */}
+            {/* --- SIDEBAR --- */}
             <div className="sidebar">
                 <div className="sidebar-header">
                     <div className="menu-icon">☰</div>
                     <div className="search-container">
-                        <input type="text" className="search-input" placeholder="Search" />
+                        <input
+                            type="text"
+                            className="search-input"
+                            placeholder="Search users..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                     </div>
                 </div>
+
                 <div className="chat-list">
-                    {chats.map((chat) => (
-                        <div
-                            key={chat.id}
-                            className={`chat-item ${activeChat?.id === chat.id ? 'active' : ''}`}
-                            onClick={() => setActiveChat(chat)}
-                        >
-                            <div className="avatar">
-                                {chat.title ? chat.title[0].toUpperCase() : 'C'}
+                    {searchQuery.trim() ? (
+                        /* SEARCH RESULTS VIEW */
+                        <>
+                            <div style={{ padding: '8px 16px', fontSize: '13px', fontWeight: 'bold', color: '#707579', backgroundColor: '#f4f4f5' }}>
+                                Global Search
                             </div>
-                            <div className="chat-info">
-                                <div className="chat-top-row">
-                                    <span className="chat-name">{chat.title || `Chat #${chat.id}`}</span>
-                                    <span className="chat-time">12:45 PM</span>
+                            {isSearching && <div style={{padding: '15px', textAlign: 'center', color: '#707579'}}>Searching...</div>}
+                            {!isSearching && searchResults.length === 0 && (
+                                <div style={{padding: '15px', textAlign: 'center', color: '#707579'}}>No users found</div>
+                            )}
+                            {searchResults.map((user) => (
+                                <div key={user.id} className="chat-item" onClick={() => handleUserClick(user.id)}>
+                                    <div className="avatar" style={{backgroundColor: '#6b9fcb'}}>
+                                        {user.username ? user.username[0].toUpperCase() : 'U'}
+                                    </div>
+                                    <div className="chat-info">
+                                        <div className="chat-top-row">
+                                            <span className="chat-name">{user.username}</span>
+                                        </div>
+                                        <div className="chat-preview" style={{color: '#3390ec'}}>Click to start chat</div>
+                                    </div>
                                 </div>
-                                <div className="chat-preview">{chat.lastMessage || chat.type}</div>
+                            ))}
+                        </>
+                    ) : (
+                        /* EXISTING CHATS VIEW */
+                        chats.map((chat) => (
+                            <div
+                                key={chat.id}
+                                className={`chat-item ${activeChat?.id === chat.id ? 'active' : ''}`}
+                                onClick={() => setActiveChat(chat)}
+                            >
+                                <div className="avatar">
+                                    {chat.title ? chat.title[0].toUpperCase() : 'C'}
+                                </div>
+                                <div className="chat-info">
+                                    <div className="chat-top-row">
+                                        <span className="chat-name">{chat.title || `Chat #${chat.id}`}</span>
+                                        <span className="chat-time">
+                                            {/* You could format chat.lastMessageTime here if added to backend */}
+                                        </span>
+                                    </div>
+                                    <div className="chat-preview">{chat.lastMessage || chat.type}</div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
 
-            {/* Main Chat Area */}
+            {/* --- MAIN CHAT AREA --- */}
             <div className="main-chat-area">
                 {!activeChat ? (
                     <div className="empty-state">
@@ -220,7 +311,6 @@ const TelegramDashboard = () => {
                                 return (
                                     <div key={index} className={`message-wrapper ${isMe ? 'me' : 'others'}`}>
                                         <div className="message-bubble">
-                                            {/* NEW: Render Image vs Text */}
                                             {msg.type === 'IMAGE' ? (
                                                 <img
                                                     src={msg.content}
@@ -230,7 +320,6 @@ const TelegramDashboard = () => {
                                             ) : (
                                                 msg.content
                                             )}
-
                                             <span className="message-time">
                                                 {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                             </span>
@@ -243,7 +332,6 @@ const TelegramDashboard = () => {
 
                         <div className="input-area">
                             <div className="input-wrapper">
-                                {/* NEW: Hidden File Input */}
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -251,7 +339,6 @@ const TelegramDashboard = () => {
                                     ref={fileInputRef}
                                     onChange={handleFileChange}
                                 />
-                                {/* NEW: Clickable Attachment Icon */}
                                 <div
                                     className="attachment-icon"
                                     onClick={handleAttachmentClick}
