@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
+import api from '../api/axios'; // IMPORTANT: Importing your Axios instance!
 import './TelegramDashboard.css';
 
 const TelegramDashboard = () => {
@@ -10,8 +11,11 @@ const TelegramDashboard = () => {
     const [messageInput, setMessageInput] = useState('');
     const [myUserId, setMyUserId] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isUploading, setIsUploading] = useState(false); // NEW: Upload state
     const [ws, setWs] = useState(null);
+
     const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null); // NEW: Reference to the hidden file input
     const navigate = useNavigate();
 
     const scrollToBottom = () => {
@@ -41,13 +45,9 @@ const TelegramDashboard = () => {
 
         const fetchChats = async () => {
             try {
-                const response = await fetch('http://localhost:8081/api/chats/my-chats', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setChats(data);
-                }
+                // Using your Axios instance to keep things clean!
+                const response = await api.get('/api/chats/my-chats');
+                setChats(response.data);
             } catch (err) {
                 console.error('Error fetching chats:', err);
             } finally {
@@ -73,7 +73,7 @@ const TelegramDashboard = () => {
             // Update last message in chat list
             setChats(prevChats => prevChats.map(c =>
                 String(c.id) === String(message.chatId)
-                ? { ...c, lastMessage: message.content }
+                ? { ...c, lastMessage: message.type === 'IMAGE' ? '📷 Photo' : message.content }
                 : c
             ));
         };
@@ -87,15 +87,9 @@ const TelegramDashboard = () => {
         if (!activeChat) return;
 
         const fetchHistory = async () => {
-            const token = localStorage.getItem('chat_token');
             try {
-                const response = await fetch(`http://localhost:8081/api/messages/${activeChat.id}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setMessages(data);
-                }
+                const response = await api.get(`/api/messages/${activeChat.id}`);
+                setMessages(response.data);
             } catch (err) {
                 console.error('Error fetching history:', err);
             }
@@ -119,6 +113,7 @@ const TelegramDashboard = () => {
             const newMessage = {
                 chatId: activeChat.id,
                 content: messageInput,
+                type: 'TEXT',
                 senderId: myUserId,
                 createdAt: new Date().toISOString()
             };
@@ -130,6 +125,40 @@ const TelegramDashboard = () => {
             ));
 
             setMessageInput('');
+        }
+    };
+
+    // --- NEW: Handle clicking the paperclip ---
+    const handleAttachmentClick = () => {
+        fileInputRef.current.click();
+    };
+
+    // --- NEW: Handle the actual file upload ---
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file || !activeChat) return;
+
+        setIsUploading(true);
+
+        const formData = new FormData();
+        formData.append('chatId', activeChat.id);
+        formData.append('file', file);
+
+        try {
+            // Axios automatically sets 'Content-Type': 'multipart/form-data' and the boundary!
+            await api.post('/api/messages/upload', formData);
+
+            // Notice we do NOT manually update the `messages` array here!
+            // The backend uploads the image, generates the Presigned URL,
+            // and broadcasts it via WebSocket. Our `socket.onmessage` listener
+            // will catch it instantly and render it!
+
+        } catch (error) {
+            console.error("Upload failed:", error);
+            alert("Failed to send image.");
+        } finally {
+            setIsUploading(false);
+            event.target.value = null; // Clear the input so you can upload the same file again
         }
     };
 
@@ -191,7 +220,17 @@ const TelegramDashboard = () => {
                                 return (
                                     <div key={index} className={`message-wrapper ${isMe ? 'me' : 'others'}`}>
                                         <div className="message-bubble">
-                                            {msg.content}
+                                            {/* NEW: Render Image vs Text */}
+                                            {msg.type === 'IMAGE' ? (
+                                                <img
+                                                    src={msg.content}
+                                                    alt="attachment"
+                                                    style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', display: 'block' }}
+                                                />
+                                            ) : (
+                                                msg.content
+                                            )}
+
                                             <span className="message-time">
                                                 {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                             </span>
@@ -204,17 +243,33 @@ const TelegramDashboard = () => {
 
                         <div className="input-area">
                             <div className="input-wrapper">
-                                <div className="attachment-icon">📎</div>
+                                {/* NEW: Hidden File Input */}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                />
+                                {/* NEW: Clickable Attachment Icon */}
+                                <div
+                                    className="attachment-icon"
+                                    onClick={handleAttachmentClick}
+                                    style={{ opacity: isUploading ? 0.5 : 1, cursor: isUploading ? 'not-allowed' : 'pointer' }}
+                                >
+                                    {isUploading ? '⏳' : '📎'}
+                                </div>
                                 <input
                                     type="text"
                                     className="message-input"
-                                    placeholder="Write a message..."
+                                    placeholder={isUploading ? "Uploading..." : "Write a message..."}
                                     value={messageInput}
                                     onChange={(e) => setMessageInput(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                    disabled={isUploading}
                                 />
                             </div>
-                            <button className="send-button-circle" onClick={handleSendMessage}>
+                            <button className="send-button-circle" onClick={handleSendMessage} disabled={isUploading}>
                                 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
                                 </svg>
