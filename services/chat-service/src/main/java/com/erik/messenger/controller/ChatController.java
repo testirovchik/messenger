@@ -4,6 +4,7 @@ import com.erik.messenger.model.Chat;
 import com.erik.messenger.model.ChatMember;
 import com.erik.messenger.service.ChatService;
 import com.erik.messenger.service.JwtService;
+import org.apache.catalina.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,5 +59,11 @@ public class ChatController {
 
         ChatMember member = chatService.addMemberToChat(chatId, userId, role);
         return ResponseEntity.ok(member);
+    }
+
+    @GetMapping("/{chatId}/members")
+    public ResponseEntity<List<Long>> getMembers(@PathVariable Long chatId) {
+        List<Long> userIds = chatService.getChatMembers(chatId);
+        return ResponseEntity.ok(userIds);
     }
 }

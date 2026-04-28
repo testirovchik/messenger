@@ -5,6 +5,7 @@ import com.erik.messenger.model.ChatMember;
 import com.erik.messenger.model.ChatType;
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.ChatRepository;
+import org.apache.catalina.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,5 +68,13 @@ public class ChatService {
                 .map(ChatMember::getChatId)
                 .collect(Collectors.toList());
         return chatRepository.findAllById(chatIds);
+    }
+
+    public List<Long> getChatMembers(Long chatId) {
+        List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+        List<Long> userIds = members.stream()
+                .map(ChatMember::getUserId)
+                .collect(Collectors.toList());
+        return userIds;
     }
 }

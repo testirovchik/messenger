@@ -1,11 +1,11 @@
 package com.erik.authservice.controller;
 
 import com.erik.authservice.dto.UserPublicDTO;
+import com.erik.authservice.model.User;
 import com.erik.authservice.repository.UserRepository;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -25,5 +25,9 @@ public class UserController {
                 .stream()
                 .map(user -> new UserPublicDTO(user.getId(), user.getUsername()))
                 .toList();
+    }
+    @GetMapping("/getUsersByIds")
+    ResponseEntity<List<User>> getUsersByIds(@Valid @RequestBody List<Long> userIds) {
+        return ResponseEntity.ok(userRepository.findAllById(userIds));
     }
 }
