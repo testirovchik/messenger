@@ -82,4 +82,18 @@ public class MessageService {
         }
         return dto;
     }
+
+    @Transactional
+    public void deleteMessage(Long messageId, Long requesterId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new RuntimeException("Message not found"));
+
+        if (!message.getSenderId().equals(requesterId)) {
+            throw new RuntimeException("Operation denied: You can only delete your own messages");
+        }
+
+        message.setDeleted(true);
+        message.setContent("This message was deleted"); // Hide the original text/image URL
+        messageRepository.save(message);
+    }
 }

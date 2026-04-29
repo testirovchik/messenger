@@ -7,6 +7,7 @@ public class MessageDto {
     private Long id;
     private Long chatId;
     private Long senderId;
+    private boolean isDeleted;
     private String content;
     private MessageType type;
     private LocalDateTime createdAt;
@@ -24,4 +25,6 @@ public class MessageDto {
     public void setType(MessageType type) { this.type = type; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public boolean isDeleted() { return isDeleted; }
+    public void setDeleted(boolean deleted) { isDeleted = deleted; }
 }

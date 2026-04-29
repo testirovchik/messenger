@@ -18,6 +18,12 @@ public class Message {
 
     private Long senderId;
 
+    @Column(nullable = false)
+    private boolean isDeleted = false;
+
+    public boolean isDeleted() { return isDeleted; }
+    public void setDeleted(boolean deleted) { isDeleted = deleted; }
+
     @Enumerated(EnumType.STRING)
     private MessageType type = MessageType.TEXT; // Defaults to TEXT
 

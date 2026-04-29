@@ -44,4 +44,15 @@ public class MessageController {
 
         return ResponseEntity.ok(dto);
     }
+
+    @DeleteMapping("/{messageId}")
+    public ResponseEntity<Void> deleteMessage(
+            @PathVariable Long messageId,
+            @RequestHeader("Authorization") String authHeader) {
+
+        Long myId = jwtService.extractUserIdFromToken(authHeader);
+        messageService.deleteMessage(messageId, myId);
+
+        return ResponseEntity.noContent().build();
+    }
 }
