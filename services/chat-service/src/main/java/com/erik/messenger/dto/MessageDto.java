@@ -7,7 +7,7 @@ public class MessageDto {
     private Long id;
     private Long chatId;
     private Long senderId;
-    private String content; // This will hold either the TEXT or the PRESIGNED URL
+    private String content;
     private MessageType type;
     private LocalDateTime createdAt;
 

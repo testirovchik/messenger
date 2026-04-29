@@ -24,12 +24,11 @@ public class MessageController {
     @GetMapping("/{chatId}")
     public ResponseEntity<List<MessageDto>> getChatHistory(
             @PathVariable Long chatId,
-            @RequestHeader("Authorization") String authHeader
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) Long cursorId
     ) {
         Long myId = jwtService.extractUserIdFromToken(authHeader);
-
-        List<MessageDto> dtos = messageService.getChatHistory(chatId, myId);
-
+        List<MessageDto> dtos = messageService.getChatHistory(chatId, myId, cursorId);
         return ResponseEntity.ok(dtos);
     }
 

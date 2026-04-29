@@ -31,13 +31,19 @@ public class MessageService {
         this.chatMemberRepository = chatMemberRepository;
     }
 
-    public List<MessageDto> getChatHistory(Long chatId, Long requesterId) {
+    public List<MessageDto> getChatHistory(Long chatId, Long requesterId, Long cursorId) {
         boolean exists = chatMemberRepository.existsByChatIdAndUserId(chatId, requesterId);
         if (!exists) {
             throw new RuntimeException("Operation denied: Only group members can get chat messages");
         }
 
-        List<Message> messages = messageRepository.findTop30ByChatIdOrderByCreatedAtDesc(chatId);
+        List<Message> messages;
+        if(cursorId == null) {
+            messages = messageRepository.findTop30ByChatIdOrderByCreatedAtDesc(chatId);
+        }
+        else {
+            messages = messageRepository.getOlderMessages(chatId, cursorId);
+        }
         Collections.reverse(messages);
 
         return messages.stream().map(this::convertToDto).collect(Collectors.toList());
