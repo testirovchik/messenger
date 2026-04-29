@@ -54,10 +54,11 @@ public class ChatController {
     @PostMapping("/{chatId}/members")
     public ResponseEntity<ChatMember> addMember(
             @PathVariable Long chatId,
+            @RequestHeader("Authorization") String authHeader,
             @RequestParam Long userId,
             @RequestParam(required = false, defaultValue = "MEMBER") String role) {
-
-        ChatMember member = chatService.addMemberToChat(chatId, userId, role);
+        Long myId = jwtService.extractUserIdFromToken(authHeader);
+        ChatMember member = chatService.addMemberToChat(chatId, userId, role, myId);
         return ResponseEntity.ok(member);
     }
 

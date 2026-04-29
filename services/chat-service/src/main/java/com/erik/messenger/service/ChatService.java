@@ -54,11 +54,17 @@ public class ChatService {
     }
 
     @Transactional
-    public ChatMember addMemberToChat(Long chatId, Long userId, String role) {
+    public ChatMember addMemberToChat(Long chatId, Long userId, String role, Long requesterId) {
+        boolean isAdmin = chatMemberRepository.existsByChatIdAndUserIdAndRole(chatId, requesterId, "ADMIN");
+        if(!isAdmin) {
+            throw new RuntimeException("Addition denied: Only group admins can add a member");
+        }
+
         ChatMember member = new ChatMember();
         member.setChatId(chatId);
         member.setUserId(userId);
         member.setRole(role != null ? role : "MEMBER");
+
         return chatMemberRepository.save(member);
     }
 
