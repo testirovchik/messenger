@@ -84,7 +84,7 @@ public class MessageService {
     }
 
     @Transactional
-    public void deleteMessage(Long messageId, Long requesterId) {
+    public void deleteMessage(Long messageId, Long requesterId){
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new RuntimeException("Message not found"));
 
@@ -95,5 +95,6 @@ public class MessageService {
         message.setDeleted(true);
         message.setContent("This message was deleted"); // Hide the original text/image URL
         messageRepository.save(message);
+        chatWebSocketHandler.broadcastMessageDeletion(message.getChatId(), messageId);
     }
 }

@@ -46,9 +46,9 @@ public class MessageController {
     }
 
     @DeleteMapping("/{messageId}")
-    public ResponseEntity<Void> deleteMessage(
+    public ResponseEntity<Void> deleteMessage (
             @PathVariable Long messageId,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader("Authorization") String authHeader) throws Exception{
 
         Long myId = jwtService.extractUserIdFromToken(authHeader);
         messageService.deleteMessage(messageId, myId);

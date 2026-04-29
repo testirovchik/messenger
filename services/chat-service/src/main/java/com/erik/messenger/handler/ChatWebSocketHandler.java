@@ -2,9 +2,10 @@ package com.erik.messenger.handler;
 
 import com.erik.messenger.model.ChatMember;
 import com.erik.messenger.model.Message;
-import com.erik.messenger.model.MessageType; // Added import for MessageType
+import com.erik.messenger.model.MessageType;
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.MessageRepository;
+import com.fasterxml.jackson.core.JsonProcessingException; // NEW IMPORT
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException; // NEW IMPORT
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +36,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         activeSessions.entrySet().removeIf(entry -> entry.getValue().equals(session));
     }
 
@@ -51,48 +53,78 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             Long senderId = jsonNode.get("senderId").asLong();
             String content = jsonNode.get("content").asText();
 
-            // Save message to database
             Message msg = new Message();
             msg.setChatId(chatId);
             msg.setSenderId(senderId);
             msg.setContent(content);
-
-            // --- NEW: Explicitly mark WebSocket messages as TEXT ---
             msg.setType(MessageType.TEXT);
-
             messageRepository.save(msg);
 
-            // Broadcast to members
             List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
             for (ChatMember member : members) {
-                // Skip sending back to the sender
                 if (member.getUserId().equals(senderId)) {
                     continue;
                 }
 
                 WebSocketSession recipientSession = activeSessions.get(member.getUserId());
                 if (recipientSession != null && recipientSession.isOpen()) {
-                    recipientSession.sendMessage(new TextMessage(message.getPayload()));
+                    try {
+                        recipientSession.sendMessage(new TextMessage(message.getPayload()));
+                    } catch (IOException e) {
+                        System.err.println("Failed to send text message to user " + member.getUserId());
+                    }
                 }
             }
         }
     }
 
-    // --- NEW METHOD: Used by MessageController to broadcast image uploads ---
-    public void broadcastMessage(Message message, Object payloadForReact) throws Exception {
+    // broadcast image uploads (Removed throws Exception)
+    public void broadcastMessage(Message message, Object payloadForReact) {
         List<ChatMember> members = chatMemberRepository.findByChatId(message.getChatId());
 
-        // Convert the DTO to a JSON string so it can be sent over the WebSocket
-        String jsonPayload = objectMapper.writeValueAsString(payloadForReact);
+        try {
+            String jsonPayload = objectMapper.writeValueAsString(payloadForReact);
 
-        for (ChatMember member : members) {
-            // Notice we do NOT skip the sender here!
-            // The sender needs to receive this so their React app can get the Presigned URL
-            // and render the image they just uploaded.
-            WebSocketSession recipientSession = activeSessions.get(member.getUserId());
-            if (recipientSession != null && recipientSession.isOpen()) {
-                recipientSession.sendMessage(new TextMessage(jsonPayload));
+            for (ChatMember member : members) {
+                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
+                if (recipientSession != null && recipientSession.isOpen()) {
+                    try {
+                        recipientSession.sendMessage(new TextMessage(jsonPayload));
+                    } catch (IOException e) {
+                        System.err.println("Failed to broadcast image to user " + member.getUserId());
+                    }
+                }
             }
+        } catch (JsonProcessingException e) {
+            System.err.println("Failed to serialize image payload: " + e.getMessage());
+        }
+    }
+
+    // broadcast message deletions (Removed throws Exception)
+    public void broadcastMessageDeletion(Long chatId, Long messageId) {
+        List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+
+        try {
+            Map<String, Object> deleteEvent = new java.util.HashMap<>();
+            deleteEvent.put("type", "DELETE_MESSAGE");
+            deleteEvent.put("messageId", messageId);
+            deleteEvent.put("chatId", chatId);
+
+            String jsonPayload = objectMapper.writeValueAsString(deleteEvent);
+
+            for (ChatMember member : members) {
+                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
+
+                if (recipientSession != null && recipientSession.isOpen()) {
+                    try {
+                        recipientSession.sendMessage(new TextMessage(jsonPayload));
+                    } catch (IOException e) {
+                        System.err.println("Failed to broadcast deletion to user " + member.getUserId());
+                    }
+                }
+            }
+        } catch (JsonProcessingException e) {
+            System.err.println("Failed to serialize deletion payload: " + e.getMessage());
         }
     }
 }
