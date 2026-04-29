@@ -76,6 +76,34 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 }
             }
         }
+        //Handle the TYPING event
+        else if ("TYPING".equals(type)) {
+            Long chatId = jsonNode.get("chatId").asLong();
+            Long senderId = jsonNode.get("userId").asLong();
+
+            Map<String, Object> typingEvent = new java.util.HashMap<>();
+            typingEvent.put("type", "TYPING");
+            typingEvent.put("chatId", chatId);
+            typingEvent.put("userId", senderId);
+
+            String typingPayload = objectMapper.writeValueAsString(typingEvent);
+
+            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+            for (ChatMember member : members) {
+                if (member.getUserId().equals(senderId)) {
+                    continue;
+                }
+
+                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
+                if (recipientSession != null && recipientSession.isOpen()) {
+                    try {
+                        recipientSession.sendMessage(new TextMessage(typingPayload));
+                    } catch (IOException e) {
+                        System.err.println("Failed to send typing event to user " + member.getUserId());
+                    }
+                }
+            }
+        }
     }
 
     // broadcast image uploads (Removed throws Exception)

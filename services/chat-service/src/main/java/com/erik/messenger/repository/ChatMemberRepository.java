@@ -27,4 +27,7 @@ public interface ChatMemberRepository extends JpaRepository<ChatMember, Long> {
     boolean existsByChatIdAndUserIdAndRole(Long chatId, Long userId, String role);
 
     boolean existsByChatIdAndUserId(Long chatId, Long userId);
+
+    // Add this inside ChatMemberRepository interface
+    Optional<ChatMember> findByChatIdAndUserId(Long chatId, Long userId);
 }

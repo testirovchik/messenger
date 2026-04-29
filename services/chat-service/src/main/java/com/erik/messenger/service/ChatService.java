@@ -93,4 +93,18 @@ public class ChatService {
                 .collect(Collectors.toList());
         return userIds;
     }
+
+    public void removeMemberFromChat(Long chatId, Long targetUserId, Long requesterId) {
+
+        ChatMember targetMember = chatMemberRepository.findByChatIdAndUserId(chatId, targetUserId)
+                .orElseThrow(() -> new RuntimeException("User is not a member of this chat"));
+
+        if (!targetUserId.equals(requesterId)) {
+            boolean isAdmin = chatMemberRepository.existsByChatIdAndUserIdAndRole(chatId, requesterId, "ADMIN");
+            if (!isAdmin) {
+                throw new RuntimeException("Operation denied: Only group admins can kick other members");
+            }
+        }
+        chatMemberRepository.delete(targetMember);
+    }
 }

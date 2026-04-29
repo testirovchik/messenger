@@ -71,4 +71,16 @@ public class ChatController {
         List<Long> userIds = chatService.getChatMembers(chatId, myId);
         return ResponseEntity.ok(userIds);
     }
+
+    @DeleteMapping("/{chatId}/members/{userId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable Long chatId,
+            @PathVariable Long userId,
+            @RequestHeader("Authorization") String authHeader) {
+
+        Long requesterId = jwtService.extractUserIdFromToken(authHeader);
+
+        chatService.removeMemberFromChat(chatId, userId, requesterId);
+        return ResponseEntity.noContent().build();
+    }
 }
