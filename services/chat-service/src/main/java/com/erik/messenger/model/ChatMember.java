@@ -4,7 +4,14 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "chat_members")
+@Table(name = "chat_members", indexes = {
+        //find all user's chats quickly
+        @Index(name = "idx_chat_members_users", columnList = "user_id"),
+
+        //Enforces data integrity,never lets the same user be in a chat twice
+        //allows instantly verify that private chat beetween users exist( (chatId, userA) and (chatId, userB) are in same chat )
+        @Index(name = "idx_chat_members_chat_user", columnList = "chat_id, user_id", unique = true)
+})
 public class ChatMember {
 
     @Id

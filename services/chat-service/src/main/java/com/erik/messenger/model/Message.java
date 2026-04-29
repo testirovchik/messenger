@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "messages")
+@Table(name = "messages", indexes = {
+        //index for finding messages quickly by descending order
+        @Index(name = "idx_messages_chat_time", columnList = "chat_id, created_at DESC")
+})
 public class Message {
 
     @Id
