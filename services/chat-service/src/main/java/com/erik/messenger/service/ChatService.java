@@ -35,8 +35,8 @@ public class ChatService {
         chat.setType(ChatType.PRIVATE);
         Chat savedChat = chatRepository.save(chat);
 
-//        addMemberToChat(savedChat.getId(), userA, "MEMBER");
-//        addMemberToChat(savedChat.getId(), userB, "MEMBER");
+        addMeToChat(savedChat.getId(), userA, "MEMBER");
+        addMeToChat(savedChat.getId(), userB, "MEMBER");
 
         return savedChat;
     }
@@ -47,10 +47,16 @@ public class ChatService {
         chat.setType(ChatType.GROUP);
         chat.setChatTitle(title);
         Chat savedChat = chatRepository.save(chat);
-
-//        addMemberToChat(savedChat.getId(), creatorId, "ADMIN");
-
+        addMeToChat(savedChat.getId(), creatorId, "ADMIN");
         return savedChat;
+    }
+
+    public void addMeToChat(Long chatId, Long userId, String role) {
+        ChatMember member = new ChatMember();
+        member.setChatId(chatId);
+        member.setUserId(userId);
+        member.setRole(role);
+        chatMemberRepository.save(member);
     }
 
     @Transactional
