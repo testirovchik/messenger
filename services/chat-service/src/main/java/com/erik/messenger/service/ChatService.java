@@ -35,8 +35,8 @@ public class ChatService {
         chat.setType(ChatType.PRIVATE);
         Chat savedChat = chatRepository.save(chat);
 
-        addMemberToChat(savedChat.getId(), userA, "MEMBER");
-        addMemberToChat(savedChat.getId(), userB, "MEMBER");
+//        addMemberToChat(savedChat.getId(), userA, "MEMBER");
+//        addMemberToChat(savedChat.getId(), userB, "MEMBER");
 
         return savedChat;
     }
@@ -48,7 +48,7 @@ public class ChatService {
         chat.setChatTitle(title);
         Chat savedChat = chatRepository.save(chat);
 
-        addMemberToChat(savedChat.getId(), creatorId, "ADMIN");
+//        addMemberToChat(savedChat.getId(), creatorId, "ADMIN");
 
         return savedChat;
     }
@@ -76,7 +76,11 @@ public class ChatService {
         return chatRepository.findAllById(chatIds);
     }
 
-    public List<Long> getChatMembers(Long chatId) {
+    public List<Long> getChatMembers(Long chatId, Long requesterId) {
+        boolean exists = chatMemberRepository.existsByChatIdAndUserId(chatId, requesterId);
+        if(!exists) {
+            throw new RuntimeException("Operation denied: Only group members can get members");
+        }
         List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
         List<Long> userIds = members.stream()
                 .map(ChatMember::getUserId)

@@ -63,8 +63,12 @@ public class ChatController {
     }
 
     @GetMapping("/{chatId}/members")
-    public ResponseEntity<List<Long>> getMembers(@PathVariable Long chatId) {
-        List<Long> userIds = chatService.getChatMembers(chatId);
+    public ResponseEntity<List<Long>> getMembers(
+            @PathVariable Long chatId,
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        Long myId = jwtService.extractUserIdFromToken(authHeader);
+        List<Long> userIds = chatService.getChatMembers(chatId, myId);
         return ResponseEntity.ok(userIds);
     }
 }
