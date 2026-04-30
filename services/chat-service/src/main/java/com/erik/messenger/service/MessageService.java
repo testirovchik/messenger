@@ -1,6 +1,7 @@
 package com.erik.messenger.service;
 
 import com.erik.messenger.dto.MessageDto;
+import com.erik.messenger.exception.NotFoundException;
 import com.erik.messenger.handler.ChatWebSocketHandler;
 import com.erik.messenger.model.Message;
 import com.erik.messenger.model.MessageType;
@@ -96,5 +97,17 @@ public class MessageService {
         message.setContent("This message was deleted"); // Hide the original text/image URL
         messageRepository.save(message);
         chatWebSocketHandler.broadcastMessageDeletion(message.getChatId(), messageId);
+    }
+
+    public void editMessage(Long messageId, String newContent, Long requesterId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new NotFoundException("Message not found"));
+        if(!message.getSenderId().equals(requesterId)) {
+            throw new RuntimeException("Operation denied: You can only edit your own messages");
+        }
+        message.setContent(newContent);
+        message.setEdited(true);
+        messageRepository.save(message);
+        chatWebSocketHandler.broadcastMessageEdit(message.getChatId(), messageId, newContent);
     }
 }

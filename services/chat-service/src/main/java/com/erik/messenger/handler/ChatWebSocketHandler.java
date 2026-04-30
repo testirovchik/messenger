@@ -155,4 +155,32 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             System.err.println("Failed to serialize deletion payload: " + e.getMessage());
         }
     }
+
+    //broadcast edited message
+    public void broadcastMessageEdit(Long chatId, Long messageId, String newContent) {
+        List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+
+        try {
+            Map<String, Object> editEvent = new java.util.HashMap<>();
+            editEvent.put("type", "EDIT_MESSAGE");
+            editEvent.put("messageId", messageId);
+            editEvent.put("chatId", chatId);
+            editEvent.put("newContent", newContent);
+
+            String jsonPayload = objectMapper.writeValueAsString(editEvent);
+
+            for (ChatMember member : members) {
+                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
+                if (recipientSession != null && recipientSession.isOpen()) {
+                    try {
+                        recipientSession.sendMessage(new TextMessage(jsonPayload));
+                    } catch (java.io.IOException e) {
+                        System.err.println("Failed to broadcast edit to user " + member.getUserId());
+                    }
+                }
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            System.err.println("Failed to serialize edit payload: " + e.getMessage());
+        }
+    }
 }

@@ -11,4 +11,8 @@ public class GlobalErrorException {
     ResponseEntity<String> runTimeExceptionHandler(RuntimeException ex) {
         return new ResponseEntity<>(ex.getMessage(), HttpStatus.FORBIDDEN);
     }
+    @ExceptionHandler(NotFoundException.class)
+    ResponseEntity<String> notFoundException(NotFoundException ex) {
+        return new ResponseEntity<>(ex.getMessage(), HttpStatus.NOT_FOUND);
+    }
 }

@@ -21,8 +21,8 @@ public class Message {
     @Column(nullable = false)
     private boolean isDeleted = false;
 
-    public boolean isDeleted() { return isDeleted; }
-    public void setDeleted(boolean deleted) { isDeleted = deleted; }
+    private boolean isEdited = false;
+
 
     @Enumerated(EnumType.STRING)
     private MessageType type = MessageType.TEXT; // Defaults to TEXT
@@ -82,4 +82,12 @@ public class Message {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
+
+    public boolean isDeleted() { return isDeleted; }
+
+    public void setDeleted(boolean deleted) { isDeleted = deleted; }
+
+    public boolean isEdited() { return isEdited; }
+
+    public void setEdited(boolean edited) { isEdited = edited; }
 }

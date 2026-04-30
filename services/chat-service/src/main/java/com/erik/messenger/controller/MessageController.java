@@ -55,4 +55,16 @@ public class MessageController {
 
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{messageId}")
+    public ResponseEntity<Void> editMessage(
+            @PathVariable Long messageId,
+            @RequestParam String newContent,
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        Long myId = jwtService.extractUserIdFromToken(authHeader);
+        messageService.editMessage(messageId, newContent, myId);
+        return ResponseEntity.ok().build();
+    }
+
 }
