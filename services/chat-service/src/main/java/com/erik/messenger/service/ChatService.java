@@ -6,7 +6,9 @@ import com.erik.messenger.model.ChatType;
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.ChatRepository;
 import org.apache.catalina.User;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +54,7 @@ public class ChatService {
         return savedChat;
     }
 
+    @CacheEvict(value = "userChats", key = "#userId")
     public void addMeToChat(Long chatId, Long userId, String role) {
         ChatMember member = new ChatMember();
         member.setChatId(chatId);
@@ -61,6 +64,10 @@ public class ChatService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "chatMembers", key = "#chatId"), // clears the group's member list
+            @CacheEvict(value = "userChats", key = "#userId")    // clears the new user's chat list
+    })
     public ChatMember addMemberToChat(Long chatId, Long userId, String role, Long requesterId) {
         boolean isAdmin = chatMemberRepository.existsByChatIdAndUserIdAndRole(chatId, requesterId, "ADMIN");
         if(!isAdmin) {
@@ -75,6 +82,7 @@ public class ChatService {
         return chatMemberRepository.save(member);
     }
 
+    @Cacheable(value = "userChats", key = "#userId")
     public List<Chat> getUserChats(Long userId) {
         List<ChatMember> memberships = chatMemberRepository.findByUserId(userId);
         List<Long> chatIds = memberships.stream()
