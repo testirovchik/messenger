@@ -6,6 +6,7 @@ import com.erik.messenger.model.ChatType;
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.ChatRepository;
 import org.apache.catalina.User;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +83,7 @@ public class ChatService {
         return chatRepository.findAllById(chatIds);
     }
 
+    @Cacheable(value = "chatMembers", key = "#chatId")
     public List<Long> getChatMembers(Long chatId, Long requesterId) {
         boolean exists = chatMemberRepository.existsByChatIdAndUserId(chatId, requesterId);
         if(!exists) {
