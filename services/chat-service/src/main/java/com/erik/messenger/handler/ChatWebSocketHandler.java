@@ -5,16 +5,19 @@ import com.erik.messenger.model.Message;
 import com.erik.messenger.model.MessageType;
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.MessageRepository;
-import com.fasterxml.jackson.core.JsonProcessingException; // NEW IMPORT
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.io.IOException; // NEW IMPORT
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,12 +30,21 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final ObjectMapper objectMapper;
     private final Map<Long, WebSocketSession> activeSessions = new ConcurrentHashMap<>();
 
+    // NEW: Inject Redis Publisher tools
+    private final StringRedisTemplate redisTemplate;
+    private final ChannelTopic topic;
+
+    // Notice the @Lazy on StringRedisTemplate to prevent Startup Circular Dependency errors!
     public ChatWebSocketHandler(ChatMemberRepository chatMemberRepository,
                                 MessageRepository messageRepository,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                @Lazy StringRedisTemplate redisTemplate,
+                                ChannelTopic topic) {
         this.chatMemberRepository = chatMemberRepository;
         this.messageRepository = messageRepository;
         this.objectMapper = objectMapper;
+        this.redisTemplate = redisTemplate;
+        this.topic = topic;
     }
 
     @Override
@@ -60,24 +72,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             msg.setType(MessageType.TEXT);
             messageRepository.save(msg);
 
-            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
-            for (ChatMember member : members) {
-                if (member.getUserId().equals(senderId)) {
-                    continue;
-                }
-
-                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
-                if (recipientSession != null && recipientSession.isOpen()) {
-                    try {
-                        recipientSession.sendMessage(new TextMessage(message.getPayload()));
-                    } catch (IOException e) {
-                        System.err.println("Failed to send text message to user " + member.getUserId());
-                    }
-                }
-            }
-        }
-        //Handle the TYPING event
-        else if ("TYPING".equals(type)) {
+            // PUBLISH TO REDIS INSTEAD OF SENDING DIRECTLY
+            redisTemplate.convertAndSend(topic.getTopic(), message.getPayload());
+        } else if ("TYPING".equals(type)) {
             Long chatId = jsonNode.get("chatId").asLong();
             Long senderId = jsonNode.get("userId").asLong();
 
@@ -88,50 +85,22 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
             String typingPayload = objectMapper.writeValueAsString(typingEvent);
 
-            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
-            for (ChatMember member : members) {
-                if (member.getUserId().equals(senderId)) {
-                    continue;
-                }
-
-                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
-                if (recipientSession != null && recipientSession.isOpen()) {
-                    try {
-                        recipientSession.sendMessage(new TextMessage(typingPayload));
-                    } catch (IOException e) {
-                        System.err.println("Failed to send typing event to user " + member.getUserId());
-                    }
-                }
-            }
+            // PUBLISH TO REDIS INSTEAD OF SENDING DIRECTLY
+            redisTemplate.convertAndSend(topic.getTopic(), typingPayload);
         }
     }
 
-    // broadcast image uploads (Removed throws Exception)
     public void broadcastMessage(Message message, Object payloadForReact) {
-        List<ChatMember> members = chatMemberRepository.findByChatId(message.getChatId());
-
         try {
             String jsonPayload = objectMapper.writeValueAsString(payloadForReact);
-
-            for (ChatMember member : members) {
-                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
-                if (recipientSession != null && recipientSession.isOpen()) {
-                    try {
-                        recipientSession.sendMessage(new TextMessage(jsonPayload));
-                    } catch (IOException e) {
-                        System.err.println("Failed to broadcast image to user " + member.getUserId());
-                    }
-                }
-            }
+            // PUBLISH TO REDIS
+            redisTemplate.convertAndSend(topic.getTopic(), jsonPayload);
         } catch (JsonProcessingException e) {
             System.err.println("Failed to serialize image payload: " + e.getMessage());
         }
     }
 
-    // broadcast message deletions (Removed throws Exception)
     public void broadcastMessageDeletion(Long chatId, Long messageId) {
-        List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
-
         try {
             Map<String, Object> deleteEvent = new java.util.HashMap<>();
             deleteEvent.put("type", "DELETE_MESSAGE");
@@ -139,27 +108,14 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             deleteEvent.put("chatId", chatId);
 
             String jsonPayload = objectMapper.writeValueAsString(deleteEvent);
-
-            for (ChatMember member : members) {
-                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
-
-                if (recipientSession != null && recipientSession.isOpen()) {
-                    try {
-                        recipientSession.sendMessage(new TextMessage(jsonPayload));
-                    } catch (IOException e) {
-                        System.err.println("Failed to broadcast deletion to user " + member.getUserId());
-                    }
-                }
-            }
+            // PUBLISH TO REDIS
+            redisTemplate.convertAndSend(topic.getTopic(), jsonPayload);
         } catch (JsonProcessingException e) {
             System.err.println("Failed to serialize deletion payload: " + e.getMessage());
         }
     }
 
-    //broadcast edited message
     public void broadcastMessageEdit(Long chatId, Long messageId, String newContent) {
-        List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
-
         try {
             Map<String, Object> editEvent = new java.util.HashMap<>();
             editEvent.put("type", "EDIT_MESSAGE");
@@ -168,19 +124,51 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             editEvent.put("newContent", newContent);
 
             String jsonPayload = objectMapper.writeValueAsString(editEvent);
+            // PUBLISH TO REDIS
+            redisTemplate.convertAndSend(topic.getTopic(), jsonPayload);
+        } catch (JsonProcessingException e) {
+            System.err.println("Failed to serialize edit payload: " + e.getMessage());
+        }
+    }
+
+    // MASTER SENDER METHOD (Triggered by RedisMessageSubscriber)
+    public void sendToLocalSessions(String jsonPayload) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(jsonPayload);
+            Long chatId = jsonNode.get("chatId").asLong();
+            String type = jsonNode.get("type").asText();
+
+            // Extract sender ID depending on how it was packed in the JSON
+            Long senderId = null;
+            if (jsonNode.has("senderId")) {
+                senderId = jsonNode.get("senderId").asLong();
+            } else if (jsonNode.has("userId")) {
+                senderId = jsonNode.get("userId").asLong();
+            }
+
+            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
 
             for (ChatMember member : members) {
+                // If it is a normal MESSAGE or a TYPING event, we DO NOT send it back to the person who sent it.
+                // But for IMAGE, DELETE, or EDIT, the sender needs to receive it to update their own React screen!
+                if (senderId != null && member.getUserId().equals(senderId)) {
+                    if ("MESSAGE".equals(type) || "TYPING".equals(type)) {
+                        continue;
+                    }
+                }
+
+                // Check ONLY in this specific server's HashMap
                 WebSocketSession recipientSession = activeSessions.get(member.getUserId());
                 if (recipientSession != null && recipientSession.isOpen()) {
                     try {
                         recipientSession.sendMessage(new TextMessage(jsonPayload));
-                    } catch (java.io.IOException e) {
-                        System.err.println("Failed to broadcast edit to user " + member.getUserId());
+                    } catch (IOException e) {
+                        System.err.println("Failed to route to user " + member.getUserId());
                     }
                 }
             }
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            System.err.println("Failed to serialize edit payload: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error processing Redis message: " + e.getMessage());
         }
     }
 }

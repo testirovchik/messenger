@@ -1,8 +1,14 @@
 package com.erik.messenger.config;
 
+import com.erik.messenger.handler.RedisMessageSubscriber;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -29,5 +35,30 @@ public class RedisConfig {
                 .serializeValuesWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())
                 );
+    }
+
+    // 1. Create the Redis Topic (The "Radio Channel")
+    @Bean
+    public ChannelTopic topic() {
+        return new ChannelTopic("chat-events");
+    }
+
+    // 2. Configure the Publisher (Used to send messages into Redis)
+    @Bean
+    public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory connectionFactory) {
+        return new StringRedisTemplate(connectionFactory);
+    }
+
+    // 3. Configure the Subscriber (Used to listen to Redis)
+    @Bean
+    public RedisMessageListenerContainer redisContainer(RedisConnectionFactory connectionFactory,
+                                                        RedisMessageSubscriber subscriber) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+
+        // FIX: Remove the 'new MessageListenerAdapter(...)' and just pass the subscriber directly!
+        container.addMessageListener(subscriber, topic());
+
+        return container;
     }
 }
