@@ -104,6 +104,11 @@ public class ChatService {
         return userIds;
     }
 
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "chatMembers", key = "#chatId"),       // Updates the chat's member list
+            @CacheEvict(value = "userChats", key = "#targetUserId")    // Removes the chat from the kicked user's sidebar
+    })
     public void removeMemberFromChat(Long chatId, Long targetUserId, Long requesterId) {
 
         ChatMember targetMember = chatMemberRepository.findByChatIdAndUserId(chatId, targetUserId)
