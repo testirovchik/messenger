@@ -5,6 +5,7 @@ import com.erik.messenger.model.Message;
 import com.erik.messenger.model.MessageType;
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.MessageRepository;
+import com.erik.messenger.service.JwtService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,17 +34,20 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     // NEW: Inject Redis Publisher tools
     private final StringRedisTemplate redisTemplate;
     private final ChannelTopic topic;
+    private final JwtService jwtService;
 
     // Notice the @Lazy on StringRedisTemplate to prevent Startup Circular Dependency errors!
     public ChatWebSocketHandler(ChatMemberRepository chatMemberRepository,
                                 MessageRepository messageRepository,
                                 ObjectMapper objectMapper,
+                                JwtService jwtService,
                                 @Lazy StringRedisTemplate redisTemplate,
                                 ChannelTopic topic) {
         this.chatMemberRepository = chatMemberRepository;
         this.messageRepository = messageRepository;
         this.objectMapper = objectMapper;
         this.redisTemplate = redisTemplate;
+        this.jwtService = jwtService;
         this.topic = topic;
     }
 
@@ -58,35 +62,67 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String type = jsonNode.get("type").asText();
 
         if ("REGISTER".equals(type)) {
-            Long userId = jsonNode.get("userId").asLong();
-            activeSessions.put(userId, session);
-        } else if ("MESSAGE".equals(type)) {
+            try {
+                // 1. Force the user to send their JWT token!
+                String token = jsonNode.get("token").asText();
+
+                // 2. Extract and verify their true identity
+                Long realUserId = jwtService.extractUserIdFromToken(token);
+
+                // 3. SECURE THE SESSION: Stamp their real ID directly into the server's session memory
+                session.getAttributes().put("SECURE_USER_ID", realUserId);
+                activeSessions.put(realUserId, session);
+
+                System.out.println("User " + realUserId + " securely connected to WebSockets.");
+
+            } catch (Exception e) {
+                // If the token is fake, expired, or missing, slam the door!
+                System.err.println("HACK ATTEMPT: Invalid WebSocket JWT Token.");
+                session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid JWT Token"));
+            }
+        }
+        else if ("MESSAGE".equals(type)) {
+            // Pull their verified identity from session memory
+            Long secureSenderId = (Long) session.getAttributes().get("SECURE_USER_ID");
+            Long claimedSenderId = jsonNode.get("senderId").asLong();
+
+            // Did they authenticate? Are they trying to impersonate someone else?
+            if (secureSenderId == null || !secureSenderId.equals(claimedSenderId)) {
+                System.err.println("SECURITY BREACH: User tried to spoof senderId " + claimedSenderId);
+                session.close(CloseStatus.POLICY_VIOLATION.withReason("Identity spoofing detected"));
+                return; // Stop the code right here
+            }
+
+            // 3. If they pass the check, process the message normally!
             Long chatId = jsonNode.get("chatId").asLong();
-            Long senderId = jsonNode.get("senderId").asLong();
             String content = jsonNode.get("content").asText();
+
+            boolean isMember = chatMemberRepository.existsByChatIdAndUserId(chatId, secureSenderId);
+            if (!isMember) {
+                System.err.println("SECURITY BREACH: User " + secureSenderId + " tried to message Chat " + chatId + " without being a member.");
+                // We silently drop the message. You could also close the connection here if you want to be strict!
+                return;
+            }
 
             Message msg = new Message();
             msg.setChatId(chatId);
-            msg.setSenderId(senderId);
+            msg.setSenderId(secureSenderId); // Safely use the secure ID
             msg.setContent(content);
             msg.setType(MessageType.TEXT);
             messageRepository.save(msg);
 
-            // PUBLISH TO REDIS INSTEAD OF SENDING DIRECTLY
             redisTemplate.convertAndSend(topic.getTopic(), message.getPayload());
-        } else if ("TYPING".equals(type)) {
-            Long chatId = jsonNode.get("chatId").asLong();
-            Long senderId = jsonNode.get("userId").asLong();
+        }
+        else if ("TYPING".equals(type)) {
+            // Secure the typing indicator too!
+            Long secureSenderId = (Long) session.getAttributes().get("SECURE_USER_ID");
+            Long claimedSenderId = jsonNode.get("userId").asLong();
 
-            Map<String, Object> typingEvent = new java.util.HashMap<>();
-            typingEvent.put("type", "TYPING");
-            typingEvent.put("chatId", chatId);
-            typingEvent.put("userId", senderId);
+            if (secureSenderId == null || !secureSenderId.equals(claimedSenderId)) {
+                return; // Silently drop fake typing events
+            }
 
-            String typingPayload = objectMapper.writeValueAsString(typingEvent);
-
-            // PUBLISH TO REDIS INSTEAD OF SENDING DIRECTLY
-            redisTemplate.convertAndSend(topic.getTopic(), typingPayload);
+            redisTemplate.convertAndSend(topic.getTopic(), message.getPayload());
         }
     }
 
