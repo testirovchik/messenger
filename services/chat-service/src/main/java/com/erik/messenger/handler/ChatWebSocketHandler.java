@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -35,6 +36,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final StringRedisTemplate redisTemplate;
     private final ChannelTopic topic;
     private final JwtService jwtService;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     // Notice the @Lazy on StringRedisTemplate to prevent Startup Circular Dependency errors!
     public ChatWebSocketHandler(ChatMemberRepository chatMemberRepository,
@@ -42,13 +44,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                                 ObjectMapper objectMapper,
                                 JwtService jwtService,
                                 @Lazy StringRedisTemplate redisTemplate,
-                                ChannelTopic topic) {
+                                ChannelTopic topic,
+                                KafkaTemplate<String, String> kafkaTemplate) {
         this.chatMemberRepository = chatMemberRepository;
         this.messageRepository = messageRepository;
         this.objectMapper = objectMapper;
         this.redisTemplate = redisTemplate;
         this.jwtService = jwtService;
         this.topic = topic;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     @Override
@@ -81,6 +85,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid JWT Token"));
             }
         }
+
         else if ("MESSAGE".equals(type)) {
             // Pull their verified identity from session memory
             Long secureSenderId = (Long) session.getAttributes().get("SECURE_USER_ID");
@@ -93,26 +98,45 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 return; // Stop the code right here
             }
 
-            // 3. If they pass the check, process the message normally!
+            // If they pass the check, process the message normally!
             Long chatId = jsonNode.get("chatId").asLong();
             String content = jsonNode.get("content").asText();
 
             boolean isMember = chatMemberRepository.existsByChatIdAndUserId(chatId, secureSenderId);
             if (!isMember) {
                 System.err.println("SECURITY BREACH: User " + secureSenderId + " tried to message Chat " + chatId + " without being a member.");
-                // We silently drop the message. You could also close the connection here if you want to be strict!
                 return;
             }
 
+            // 1. Save to Database and CAPTURE the saved entity to get the real ID and Timestamp
             Message msg = new Message();
             msg.setChatId(chatId);
-            msg.setSenderId(secureSenderId); // Safely use the secure ID
+            msg.setSenderId(secureSenderId);
             msg.setContent(content);
             msg.setType(MessageType.TEXT);
-            messageRepository.save(msg);
+            msg = messageRepository.save(msg); // <--- Reassign to get the generated ID!
 
-            redisTemplate.convertAndSend(topic.getTopic(), message.getPayload());
+            // 2. Build the rich JSON payload for the frontend and Kafka
+            Map<String, Object> responsePayload = new java.util.HashMap<>();
+            responsePayload.put("type", "MESSAGE");
+            responsePayload.put("id", msg.getId());
+            responsePayload.put("chatId", msg.getChatId());
+            responsePayload.put("senderId", msg.getSenderId());
+            responsePayload.put("content", msg.getContent());
+            responsePayload.put("createdAt", msg.getCreatedAt() != null ? msg.getCreatedAt().toString() : java.time.LocalDateTime.now().toString());
+
+            String jsonToSend = objectMapper.writeValueAsString(responsePayload);
+
+            // 3. Broadcast via Redis for instant WebSocket delivery to User B
+            redisTemplate.convertAndSend(topic.getTopic(), jsonToSend);
+
+            // 4. NEW: Send to Kafka using the Chat ID as the Partition Key!
+            String partitionKey = String.valueOf(msg.getChatId());
+            kafkaTemplate.send("chat-messages", partitionKey, jsonToSend);
+
+            System.out.println("Successfully sent message to Kafka (Partition Key: " + partitionKey + ")");
         }
+
         else if ("TYPING".equals(type)) {
             // Secure the typing indicator too!
             Long secureSenderId = (Long) session.getAttributes().get("SECURE_USER_ID");
