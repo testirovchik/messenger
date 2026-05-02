@@ -8,7 +8,7 @@ spring:
       host: localhost
       port: 6379
   datasource:
-    url: jdbc:postgresql://localhost:5432/chatdb
+    url: jdbc:postgresql://localhost:5433/chatdb
     driver-class-name: org.postgresql.Driver
     username: erik
     password: erik123*
