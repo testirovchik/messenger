@@ -3,6 +3,9 @@ server:
 spring:
   application:
     name: messenger
+  kafka:
+    producer:
+      acks: all
   data:
     redis:
       host: localhost
