@@ -58,6 +58,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         activeSessions.entrySet().removeIf(entry -> entry.getValue().equals(session));
+        Long userId = (Long) session.getAttributes().get("SECURE_USER_ID");
+        if (userId != null) {
+            redisTemplate.delete("user:" + userId + ":status");
+            System.out.println("User " + userId + " disconnected. Removed from Redis.");
+        }
     }
 
     @Override
@@ -76,7 +81,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 // 3. SECURE THE SESSION: Stamp their real ID directly into the server's session memory
                 session.getAttributes().put("SECURE_USER_ID", realUserId);
                 activeSessions.put(realUserId, session);
-
+                redisTemplate.opsForValue().set("user:" + realUserId + ":status", "ONLINE");
+                System.out.println("User " + realUserId + " securely connected and cached in Redis.");
                 System.out.println("User " + realUserId + " securely connected to WebSockets.");
 
             } catch (Exception e) {
@@ -108,7 +114,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // 1. Save to Database and CAPTURE the saved entity to get the real ID and Timestamp
             Message msg = new Message();
             msg.setChatId(chatId);
             msg.setSenderId(secureSenderId);
@@ -116,21 +121,26 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             msg.setType(MessageType.TEXT);
             msg = messageRepository.save(msg); // <--- Reassign to get the generated ID!
 
-            // 2. Build the rich JSON payload for the frontend and Kafka
+            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+            List<Long> recipientIds = members.stream()
+                    .map(ChatMember::getUserId)
+                    .filter(id -> !id.equals(secureSenderId)) // Exclude the sender
+                    .toList();
+
             Map<String, Object> responsePayload = new java.util.HashMap<>();
             responsePayload.put("type", "MESSAGE");
-            responsePayload.put("id", msg.getId());
+            responsePayload.put("id", msg.getId()); // <-- MISSING
             responsePayload.put("chatId", msg.getChatId());
             responsePayload.put("senderId", msg.getSenderId());
             responsePayload.put("content", msg.getContent());
             responsePayload.put("createdAt", msg.getCreatedAt() != null ? msg.getCreatedAt().toString() : java.time.LocalDateTime.now().toString());
+            responsePayload.put("recipientIds", recipientIds);
 
             String jsonToSend = objectMapper.writeValueAsString(responsePayload);
 
-            // 3. Broadcast via Redis for instant WebSocket delivery to User B
             redisTemplate.convertAndSend(topic.getTopic(), jsonToSend);
+            System.out.println("Broadcasted message to Redis Pub/Sub for live delivery!");
 
-            // 4. NEW: Send to Kafka using the Chat ID as the Partition Key!
             String partitionKey = String.valueOf(msg.getChatId());
             kafkaTemplate.send("chat-messages", partitionKey, jsonToSend);
 
@@ -143,7 +153,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             Long claimedSenderId = jsonNode.get("userId").asLong();
 
             if (secureSenderId == null || !secureSenderId.equals(claimedSenderId)) {
-                return; // Silently drop fake typing events
+                return;
             }
 
             redisTemplate.convertAndSend(topic.getTopic(), message.getPayload());
@@ -191,14 +201,13 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    // MASTER SENDER METHOD (Triggered by RedisMessageSubscriber)
+    //send the message to this server's recepients
     public void sendToLocalSessions(String jsonPayload) {
         try {
             JsonNode jsonNode = objectMapper.readTree(jsonPayload);
-            Long chatId = jsonNode.get("chatId").asLong();
             String type = jsonNode.get("type").asText();
 
-            // Extract sender ID depending on how it was packed in the JSON
+            // Extract sender ID
             Long senderId = null;
             if (jsonNode.has("senderId")) {
                 senderId = jsonNode.get("senderId").asLong();
@@ -206,24 +215,28 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 senderId = jsonNode.get("userId").asLong();
             }
 
-            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+            // INSTEAD OF THE DATABASE: Just grab the array we packed into the JSON!
+            JsonNode recipientIdsNode = jsonNode.get("recipientIds");
 
-            for (ChatMember member : members) {
-                // If it is a normal MESSAGE or a TYPING event, we DO NOT send it back to the person who sent it.
-                // But for IMAGE, DELETE, or EDIT, the sender needs to receive it to update their own React screen!
-                if (senderId != null && member.getUserId().equals(senderId)) {
-                    if ("MESSAGE".equals(type) || "TYPING".equals(type)) {
-                        continue;
+            if (recipientIdsNode != null && recipientIdsNode.isArray()) {
+                for (JsonNode idNode : recipientIdsNode) {
+                    Long targetUserId = idNode.asLong();
+
+                    // Same logic: don't send normal messages back to the sender
+                    if (senderId != null && targetUserId.equals(senderId)) {
+                        if ("MESSAGE".equals(type) || "TYPING".equals(type)) {
+                            continue;
+                        }
                     }
-                }
 
-                // Check ONLY in this specific server's HashMap
-                WebSocketSession recipientSession = activeSessions.get(member.getUserId());
-                if (recipientSession != null && recipientSession.isOpen()) {
-                    try {
-                        recipientSession.sendMessage(new TextMessage(jsonPayload));
-                    } catch (IOException e) {
-                        System.err.println("Failed to route to user " + member.getUserId());
+                    // Check ONLY in this specific server's HashMap
+                    WebSocketSession recipientSession = activeSessions.get(targetUserId);
+                    if (recipientSession != null && recipientSession.isOpen()) {
+                        try {
+                            recipientSession.sendMessage(new TextMessage(jsonPayload));
+                        } catch (IOException e) {
+                            System.err.println("Failed to route to user " + targetUserId);
+                        }
                     }
                 }
             }
