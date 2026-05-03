@@ -72,23 +72,23 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         if ("REGISTER".equals(type)) {
             try {
-                // 1. Force the user to send their JWT token!
                 String token = jsonNode.get("token").asText();
+                String email = jsonNode.get("email").asText();
 
-                // 2. Extract and verify their true identity
                 Long realUserId = jwtService.extractUserIdFromToken(token);
 
-                // 3. SECURE THE SESSION: Stamp their real ID directly into the server's session memory
                 session.getAttributes().put("SECURE_USER_ID", realUserId);
                 activeSessions.put(realUserId, session);
+
                 redisTemplate.opsForValue().set("user:" + realUserId + ":status", "ONLINE");
-                System.out.println("User " + realUserId + " securely connected and cached in Redis.");
-                System.out.println("User " + realUserId + " securely connected to WebSockets.");
+                redisTemplate.opsForValue().set("user:" + realUserId + ":email", email);
+
+                System.out.println("User " + realUserId + " securely connected and cached in Redis with email: " + email);
 
             } catch (Exception e) {
                 // If the token is fake, expired, or missing, slam the door!
-                System.err.println("HACK ATTEMPT: Invalid WebSocket JWT Token.");
-                session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid JWT Token"));
+                System.err.println("HACK ATTEMPT: Invalid WebSocket Payload (Bad JWT or Missing Email).");
+                session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid Payload"));
             }
         }
 

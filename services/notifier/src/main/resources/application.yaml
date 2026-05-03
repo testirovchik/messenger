@@ -1,6 +1,17 @@
 server:
   port: 8083
 spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: sender.senderyan.777@gmail.com
+    password: hrjagsgqexbymdqi
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
   application:
     name: notifier
   kafka:
