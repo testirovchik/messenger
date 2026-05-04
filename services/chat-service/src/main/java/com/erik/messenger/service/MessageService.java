@@ -7,6 +7,8 @@ import com.erik.messenger.model.Message;
 import com.erik.messenger.model.MessageType;
 import com.erik.messenger.repository.ChatMemberRepository;
 import com.erik.messenger.repository.MessageRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,22 +34,17 @@ public class MessageService {
         this.chatMemberRepository = chatMemberRepository;
     }
 
-    public List<MessageDto> getChatHistory(Long chatId, Long requesterId, Long cursorId) {
+    public Page<MessageDto> getChatHistory(Long chatId, Long requesterId, Pageable pageable) {
         boolean exists = chatMemberRepository.existsByChatIdAndUserId(chatId, requesterId);
         if (!exists) {
             throw new RuntimeException("Operation denied: Only group members can get chat messages");
         }
 
-        List<Message> messages;
-        if(cursorId == null) {
-            messages = messageRepository.findTop30ByChatIdOrderByCreatedAtDesc(chatId);
-        }
-        else {
-            messages = messageRepository.getOlderMessages(chatId, cursorId);
-        }
-        Collections.reverse(messages);
+        // Fetch the specific page of messages
+        Page<Message> messagePage = messageRepository.findByChatIdOrderByCreatedAtDesc(chatId, pageable);
 
-        return messages.stream().map(this::convertToDto).collect(Collectors.toList());
+        // Convert the Page of Entities into a Page of DTOs
+        return messagePage.map(this::convertToDto);
     }
 
     @Transactional

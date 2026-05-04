@@ -3,6 +3,9 @@ package com.erik.messenger.controller;
 import com.erik.messenger.dto.MessageDto;
 import com.erik.messenger.service.JwtService;
 import com.erik.messenger.service.MessageService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,13 +25,17 @@ public class MessageController {
     }
 
     @GetMapping("/{chatId}")
-    public ResponseEntity<List<MessageDto>> getChatHistory(
+    public ResponseEntity<Page<MessageDto>> getChatHistory(
             @PathVariable Long chatId,
             @RequestHeader("Authorization") String authHeader,
-            @RequestParam(required = false) Long cursorId
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size
     ) {
         Long myId = jwtService.extractUserIdFromToken(authHeader);
-        List<MessageDto> dtos = messageService.getChatHistory(chatId, myId, cursorId);
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<MessageDto> dtos = messageService.getChatHistory(chatId, myId, pageable);
         return ResponseEntity.ok(dtos);
     }
 
