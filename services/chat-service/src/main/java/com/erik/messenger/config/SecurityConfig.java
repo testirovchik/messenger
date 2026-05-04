@@ -19,13 +19,17 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // FIX 1: Explicitly tell Spring Security to use your CORS settings!
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/ws-chat/**").permitAll()
                         .requestMatchers("/api/**").permitAll()
                         .requestMatchers("/error").permitAll()
+
+                        // FIX: ALLOW SWAGGER ENDPOINTS
+                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui/**").permitAll()
+
                         .anyRequest().authenticated()
                 );
 

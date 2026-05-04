@@ -1,3 +1,10 @@
+springdoc:
+  swagger-ui:
+    urls:
+      - name: Chat Service
+        url: /v3/api-docs
+      - name: Auth Service
+        url: http://localhost:8080/v3/api-docs
 server:
   port: 8081
 spring:

@@ -8,6 +8,10 @@ import com.erik.authservice.exception.UserAlreadyExistsException;
 import com.erik.authservice.model.User;
 import com.erik.authservice.repository.UserRepository;
 import com.erik.authservice.service.JwtService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +23,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
+@Tag(name = "Authentication", description = "Endpoints for creating accounts and logging in")
 public class AuthController {
 
     private final UserRepository userRepository;
@@ -31,6 +36,12 @@ public class AuthController {
         this.jwtService = jwtService;
     }
 
+    @Operation(summary = "Register a new user", description = "Creates a new user account. Ensures the email and username are completely unique.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "User successfully created"),
+            @ApiResponse(responseCode = "400", description = "Invalid payload (e.g., password too short, invalid email format)"),
+            @ApiResponse(responseCode = "409", description = "Conflict: Username or Email is already taken")
+    })
     @PostMapping("/register")
     public ResponseEntity<Void> register(@Valid @RequestBody RegistrationRequest request) {
         Map<String, String> conflictErrors = new HashMap<>();
@@ -54,6 +65,12 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    @Operation(summary = "User Login", description = "Authenticates a user by email and password, returning a signed JWT token.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Successfully logged in, returns JWT token"),
+            @ApiResponse(responseCode = "400", description = "Invalid payload format"),
+            @ApiResponse(responseCode = "409", description = "Invalid email or password")
+    })
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(
