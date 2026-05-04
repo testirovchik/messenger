@@ -25,10 +25,11 @@ public class SecurityConfig {
                         .requestMatchers("/ws-chat/**").permitAll()
                         .requestMatchers("/api/**").permitAll()
                         .requestMatchers("/error").permitAll()
-
-                        // FIX: ALLOW SWAGGER ENDPOINTS
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
+
+                        // NEW: Allow Prometheus and Health Checks
+                        .requestMatchers("/actuator/**").permitAll()
 
                         .anyRequest().authenticated()
                 );

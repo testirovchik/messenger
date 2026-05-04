@@ -5,6 +5,17 @@ springdoc:
         url: /v3/api-docs
       - name: Auth Service
         url: http://localhost:8080/v3/api-docs
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: always # Shows database and disk health, not just "UP"
+  metrics:
+    tags:
+      application: ${spring.application.name} # Tags all metrics with "messenger"
 server:
   port: 8081
 spring:

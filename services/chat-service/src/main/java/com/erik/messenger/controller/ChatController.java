@@ -29,6 +29,7 @@ public class ChatController {
 
     @Operation(summary = "Get My Chats", description = "Retrieves a list of all chat rooms the authenticated user is currently a member of.")
     @ApiResponse(responseCode = "200", description = "Successfully retrieved user's chats")
+
     @GetMapping("/my-chats")
     public ResponseEntity<List<Chat>> getMyChats(
             @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
@@ -39,6 +40,7 @@ public class ChatController {
 
     @Operation(summary = "Create/Get Private Chat", description = "Creates a new private chat with another user, or returns the existing private chat if they already have one.")
     @ApiResponse(responseCode = "200", description = "Successfully created or fetched private chat")
+
     @PostMapping("/private")
     public ResponseEntity<Chat> createPrivateChat(
             @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader,
@@ -52,6 +54,7 @@ public class ChatController {
 
     @Operation(summary = "Create Group Chat", description = "Creates a new group chat and automatically assigns the creator as the ADMIN.")
     @ApiResponse(responseCode = "200", description = "Successfully created group chat")
+
     @PostMapping("/group")
     public ResponseEntity<Chat> createGroupChat(
             @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader,
@@ -65,6 +68,7 @@ public class ChatController {
 
     @Operation(summary = "Add Member to Chat", description = "Adds a user to a specific chat room. The requester must be an ADMIN of the group to perform this action.")
     @ApiResponse(responseCode = "200", description = "Successfully added the user to the chat")
+
     @PostMapping("/{chatId}/members")
     public ResponseEntity<ChatMember> addMember(
             @Parameter(description = "ID of the chat room", example = "1") @PathVariable Long chatId,

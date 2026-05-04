@@ -7,7 +7,7 @@ services:
     image: postgres:15-alpine
     container_name: auth-postgres
     ports:
-      - "5432:5432" # Your laptop connects via 5432
+      - "5432:5432"
     environment:
       POSTGRES_USER: erik
       POSTGRES_PASSWORD: erik123*
@@ -18,20 +18,20 @@ services:
     image: postgres:15-alpine
     container_name: chat-postgres
     ports:
-      - "5433:5432" # Your laptop connects via 5433
+      - "5433:5432"
     environment:
       POSTGRES_USER: erik
       POSTGRES_PASSWORD: erik123*
       POSTGRES_DB: chatdb
 
-  # 3. Redis (Remains the same)
+  # 3. Redis
   redis:
     image: redis:7-alpine
     container_name: messenger-redis
     ports:
       - "6379:6379"
 
-  # 4. Kafka (Remains the same)
+  # 4. Kafka
   kafka:
     image: apache/kafka:latest
     container_name: messenger-kafka
@@ -40,11 +40,62 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # FIX: We must configure TWO lanes for Kafka.
+      # INTERNAL for Docker containers to use, EXTERNAL for your laptop (IntelliJ/Postman) to use.
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
+  # -----------------------------------------------------
+  # 5. Auth Microservice
+  # -----------------------------------------------------
+  auth-service:
+    build: ../auth-service # Tells Docker to run the Multi-Stage Dockerfile in this folder
+    container_name: auth-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-postgres     # Waits for the DB container to start first
+    environment:
+      # Overrides the 'url' in application.yaml to use the Docker network
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-postgres:5432/authdb
+
+  # -----------------------------------------------------
+  # 6. Chat Microservice
+  # -----------------------------------------------------
+  chat-service:
+    build: .   # Tells Docker to run the Multi-Stage Dockerfile in this folder
+    container_name: chat-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - chat-postgres
+      - redis
+      - kafka
+    environment:
+      # Overrides application.yaml properties for the Docker network
+      SPRING_DATASOURCE_URL: jdbc:postgresql://chat-postgres:5432/chatdb
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      # 'host.docker.internal' tells the container to escape Docker and look at your laptop's Localstack port
+      AWS_S3_ENDPOINT: http://host.docker.internal:4566
+
+  # 7. Notifier Microservice
+  notifier-service:
+    build: ../notifier       # Goes UP one level, then DOWN into notifier folder
+    container_name: notifier-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - redis
+      - kafka
+    environment:
+      # Overrides the 'localhost' settings in application.yaml to use the Docker network
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: kafka:29092

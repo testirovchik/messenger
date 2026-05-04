@@ -18,6 +18,8 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 
 import java.io.IOException;
 import java.util.List;
@@ -38,6 +40,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     private final JwtService jwtService;
     private final KafkaTemplate<String, String> kafkaTemplate;
 
+    private final Counter messagesSentCounter;
+
     // Notice the @Lazy on StringRedisTemplate to prevent Startup Circular Dependency errors!
     public ChatWebSocketHandler(ChatMemberRepository chatMemberRepository,
                                 MessageRepository messageRepository,
@@ -45,7 +49,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                                 JwtService jwtService,
                                 @Lazy StringRedisTemplate redisTemplate,
                                 ChannelTopic topic,
-                                KafkaTemplate<String, String> kafkaTemplate) {
+                                KafkaTemplate<String, String> kafkaTemplate,
+                                MeterRegistry meterRegistry) {
+        this.messagesSentCounter = meterRegistry.counter("business_messages_sent_total", "type", "websocket");
         this.chatMemberRepository = chatMemberRepository;
         this.messageRepository = messageRepository;
         this.objectMapper = objectMapper;
@@ -121,6 +127,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             msg.setType(MessageType.TEXT);
             msg = messageRepository.save(msg); // <--- Reassign to get the generated ID!
 
+            messagesSentCounter.increment();
             List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
             List<Long> recipientIds = members.stream()
                     .map(ChatMember::getUserId)
