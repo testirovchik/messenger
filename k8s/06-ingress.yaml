@@ -1,0 +1,55 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: messenger-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: messenger.local
+      http:
+        paths:
+          # ==========================================
+          # 1. AUTH SERVICE ROUTES
+          # ==========================================
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8080
+
+          # ==========================================
+          # 2. CHAT SERVICE ROUTES
+          # ==========================================
+          - path: /api/chats
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-service
+                port:
+                  number: 8081
+
+          - path: /api/messages
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-service
+                port:
+                  number: 8081
+
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-service
+                port:
+                  number: 8081

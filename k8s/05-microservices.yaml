@@ -83,6 +83,11 @@ spec:
                 configMapKeyRef:
                   name: messenger-config
                   key: KAFKA_BROKER
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: messenger-secrets
+                  key: JWT_SECRET
 
 ---
 apiVersion: v1
@@ -130,6 +135,11 @@ spec:
                 secretKeyRef:
                   name: messenger-secrets
                   key: EMAIL_PASSWORD
+            - name: SPRING_DATA_REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: messenger-config
+                  key: REDIS_HOST
 ---
 apiVersion: v1
 kind: Service
