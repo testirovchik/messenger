@@ -107,7 +107,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             if (secureSenderId == null || !secureSenderId.equals(claimedSenderId)) {
                 System.err.println("SECURITY BREACH: User tried to spoof senderId " + claimedSenderId);
                 session.close(CloseStatus.POLICY_VIOLATION.withReason("Identity spoofing detected"));
-                return; // Stop the code right here
+                return;
             }
 
             // If they pass the check, process the message normally!
@@ -125,18 +125,18 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             msg.setSenderId(secureSenderId);
             msg.setContent(content);
             msg.setType(MessageType.TEXT);
-            msg = messageRepository.save(msg); // <--- Reassign to get the generated ID!
+            msg = messageRepository.save(msg);
 
             messagesSentCounter.increment();
             List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
             List<Long> recipientIds = members.stream()
                     .map(ChatMember::getUserId)
-                    .filter(id -> !id.equals(secureSenderId)) // Exclude the sender
+                    .filter(id -> !id.equals(secureSenderId))
                     .toList();
 
             Map<String, Object> responsePayload = new java.util.HashMap<>();
             responsePayload.put("type", "MESSAGE");
-            responsePayload.put("id", msg.getId()); // <-- MISSING
+            responsePayload.put("id", msg.getId());
             responsePayload.put("chatId", msg.getChatId());
             responsePayload.put("senderId", msg.getSenderId());
             responsePayload.put("content", msg.getContent());

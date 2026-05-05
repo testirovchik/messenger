@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: messenger-config
+data:
+  AUTH_DB_URL: "jdbc:postgresql://auth-postgres:5432/authdb"
+  CHAT_DB_URL: "jdbc:postgresql://chat-postgres:5432/chatdb"
+  REDIS_HOST: "redis-service"
+  KAFKA_BROKER: "kafka-service:9092"

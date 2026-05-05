@@ -1,0 +1,142 @@
+# ==========================================
+# 1. AUTH SERVICE
+# ==========================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+        - name: auth-service
+          image: chat-service-auth-service:latest
+          imagePullPolicy: Never # Forces K8s to use your local Mac image
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: messenger-config
+                  key: AUTH_DB_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: messenger-secrets
+                  key: JWT_SECRET
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - port: 8080
+
+# ==========================================
+# 2. CHAT SERVICE (Load Balanced - 2 Replicas)
+# ==========================================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-service
+spec:
+  replicas: 2 # <--- RUBRIC REQUIREMENT: LOAD BALANCING!
+  selector:
+    matchLabels:
+      app: chat-service
+  template:
+    metadata:
+      labels:
+        app: chat-service
+    spec:
+      containers:
+        - name: chat-service
+          image: chat-service-chat-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: messenger-config
+                  key: CHAT_DB_URL
+            - name: SPRING_DATA_REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: messenger-config
+                  key: REDIS_HOST
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: messenger-config
+                  key: KAFKA_BROKER
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-service
+spec:
+  selector:
+    app: chat-service
+  ports:
+    - port: 8081
+
+# ==========================================
+# 3. NOTIFIER SERVICE
+# ==========================================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifier-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notifier-service
+  template:
+    metadata:
+      labels:
+        app: notifier-service
+    spec:
+      containers:
+        - name: notifier-service
+          image: chat-service-notifier-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8083
+          env:
+            - name: SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: messenger-config
+                  key: KAFKA_BROKER
+            - name: SPRING_MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: messenger-secrets
+                  key: EMAIL_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifier-service
+spec:
+  selector:
+    app: notifier-service
+  ports:
+    - port: 8083
