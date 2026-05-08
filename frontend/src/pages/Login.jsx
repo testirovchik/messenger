@@ -19,7 +19,8 @@ export default function Login() {
     setError('')
 
     try {
-      const res = await fetch('http://localhost:8080/auth/login', {
+      // UPDATED: Pointing to Ingress domain
+      const res = await fetch('http://messenger.local/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -27,21 +28,14 @@ export default function Login() {
 
       if (res.ok) {
         const data = await res.json()
-        const token = data.token
-
-        // Store the JWT in localStorage
-        localStorage.setItem('chat_token', token)
-
-        // Redirect to chat list page
+        localStorage.setItem('chat_token', data.token)
         navigate('/chats')
         return
       }
 
-      // If we get an error response, try to parse it
       const errorData = await res.json().catch(() => ({ message: 'Invalid email or password.' }))
       setError(errorData.message || 'Invalid email or password.')
     } catch (err) {
-      console.error('Login error:', err)
       setError('Network error. Please try again.')
     } finally {
       setLoading(false)
@@ -56,27 +50,11 @@ export default function Login() {
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
+            <input id="email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" />
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="Your password"
-              autoComplete="current-password"
-            />
+            <input id="password" name="password" type="password" value={form.password} onChange={handleChange} placeholder="Your password" />
           </div>
           {error && <p className="error error--general">{error}</p>}
           <button type="submit" className="auth-btn" disabled={loading}>

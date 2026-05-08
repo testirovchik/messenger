@@ -12,9 +12,8 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic chatMessagesTopic() {
         return TopicBuilder.name("chat-messages")
-                .partitions(3) // 3 Lanes for consumers to read fast
-                .replicas(3)   // 3 Copies across 3 different Brokers for safety
-                // THIS IS THE MAGIC LINE:
+                .partitions(3)
+                .replicas(3)
                 .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2")
                 .build();
     }

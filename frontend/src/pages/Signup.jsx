@@ -18,15 +18,19 @@ export default function Signup() {
     setLoading(true)
     setErrors({})
     try {
-      const res = await fetch('/auth/register', {
+      // FIXED: Endpoint changed from /auth/login to /auth/signup
+      // FIXED: URL updated to messenger.local
+      const res = await fetch('http://messenger.local/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      if (res.status === 201) {
+
+      if (res.ok || res.status === 201) {
         navigate('/login')
         return
       }
+
       const data = await res.json()
       if (data && typeof data === 'object') {
         setErrors(data)
@@ -48,46 +52,20 @@ export default function Signup() {
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="username">Username</label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              value={form.username}
-              onChange={handleChange}
-              placeholder="3–20 characters"
-              autoComplete="username"
-            />
+            <input id="username" name="username" type="text" value={form.username} onChange={handleChange} placeholder="3–20 characters" />
             {errors.username && <span className="error">{errors.username}</span>}
           </div>
           <div className="field">
             <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
+            <input id="email" name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" />
             {errors.email && <span className="error">{errors.email}</span>}
           </div>
           <div className="field">
             <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="Min. 8 characters"
-              autoComplete="new-password"
-            />
+            <input id="password" name="password" type="password" value={form.password} onChange={handleChange} placeholder="Min. 8 characters" />
             {errors.password && <span className="error">{errors.password}</span>}
           </div>
-          {errors.general && (
-            <p className="error error--general">{errors.general}</p>
-          )}
+          {errors.general && <p className="error error--general">{errors.general}</p>}
           <button type="submit" className="auth-btn" disabled={loading}>
             {loading ? 'Creating account…' : 'Sign up'}
           </button>

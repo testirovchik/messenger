@@ -59,7 +59,7 @@ public class NotificationListener {
                             // 4. Send the email!
                             emailService.sendMissedMessageEmail(emailAddress);
 
-                            // 5. Start the 1-hour cooldown!
+                            // 5. Start the 3 minutes cooldown!
                             redisTemplate.opsForValue().set(cooldownKey, "TRUE", Duration.ofMinutes(3));
                         } else {
                             System.out.println("User " + targetUserId + " is offline, but we don't have their email in Redis!");

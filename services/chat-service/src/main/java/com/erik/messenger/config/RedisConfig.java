@@ -56,7 +56,7 @@ public class RedisConfig {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
 
-        // FIX: Remove the 'new MessageListenerAdapter(...)' and just pass the subscriber directly!
+        //just pass the subscriber directly!
         container.addMessageListener(subscriber, topic());
 
         return container;

@@ -184,10 +184,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             deleteEvent.put("messageId", messageId);
             deleteEvent.put("chatId", chatId);
 
+            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+            List<Long> recipientIds = members.stream()
+                    .map(ChatMember::getUserId)
+                    .toList();
+            deleteEvent.put("recipientIds", recipientIds);
+
             String jsonPayload = objectMapper.writeValueAsString(deleteEvent);
-            // PUBLISH TO REDIS
             redisTemplate.convertAndSend(topic.getTopic(), jsonPayload);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             System.err.println("Failed to serialize deletion payload: " + e.getMessage());
         }
     }
@@ -200,10 +205,15 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             editEvent.put("chatId", chatId);
             editEvent.put("newContent", newContent);
 
+            List<ChatMember> members = chatMemberRepository.findByChatId(chatId);
+            List<Long> recipientIds = members.stream()
+                    .map(ChatMember::getUserId)
+                    .toList();
+            editEvent.put("recipientIds", recipientIds);
+
             String jsonPayload = objectMapper.writeValueAsString(editEvent);
-            // PUBLISH TO REDIS
             redisTemplate.convertAndSend(topic.getTopic(), jsonPayload);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             System.err.println("Failed to serialize edit payload: " + e.getMessage());
         }
     }
