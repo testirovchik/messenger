@@ -71,19 +71,41 @@ data:
     server:
       http_listen_port: 9080
       grpc_listen_port: 0
+    
     clients:
       - url: http://loki-service:3100/loki/api/v1/push
+    
     scrape_configs:
       - job_name: kubernetes-pods
         kubernetes_sd_configs:
           - role: pod
         relabel_configs:
+          # Carry the app label through so you can filter by app in Grafana
           - source_labels: [__meta_kubernetes_pod_label_app]
             target_label: app
-          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_pod_name, __meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
+    
+          # Useful extra labels for filtering in Loki
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+    
+          # FIX: The original config joined 4 labels with separator "/" then
+          # tried to reference them as $1/$2/$3/$4 capture groups, but those
+          # are regex capture groups — not positional labels. With no regex
+          # defined, every capture group is empty, producing the path
+          # "/var/log/pods//*.log" which matches nothing.
+          #
+          # CORRECT approach: join only pod_uid and container_name with "/".
+          # Use a wildcard glob (*$1*) to match the full directory name which
+          # Kubernetes formats as "<namespace>_<pod-name>_<uid>". We only need
+          # the UID suffix to uniquely identify it, so the glob handles the rest.
+          - source_labels: [__meta_kubernetes_pod_uid, __meta_kubernetes_pod_container_name]
             separator: /
             target_label: __path__
-            replacement: /var/log/pods/$1_$2_$3/$4/*.log
+            replacement: /var/log/pods/*$1*/$2/*.log
 ---
 apiVersion: apps/v1
 kind: DaemonSet

@@ -22,6 +22,9 @@ management:
   metrics:
     tags:
       application: ${spring.application.name} # Tags all metrics with "messenger"
+    export:
+      prometheus:
+        prometheus: true
 server:
   port: 8081
 spring:
