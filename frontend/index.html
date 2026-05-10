@@ -1,13 +1,22 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>my-react-app</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Messenger</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="login-container">
+    <form id="loginForm">
+        <h1>Sign In</h1>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+        <p id="error" class="error"></p>
+    </form>
+</div>
+
+<script type="module" src="assets/js/main.js"></script>
+</body>
 </html>
