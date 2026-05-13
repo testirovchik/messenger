@@ -1,16 +1,37 @@
-// assets/js/components/login-form.js
 import { login } from '../api/auth.js';
+import { register } from '../api/auth.js';
 import { saveToken } from '../utils/storage.js';
-// import { navigateTo } from '../router.js';
 
-export function initLogin() {
-    const form = document.getElementById('loginForm');
+let isLoginMode = true;
+
+export function initAuth() {
+    const form = document.getElementById('authForm');
     const errorEl = document.getElementById('error');
+    const titleEl = document.getElementById('form-title');
+    const submitBtn = document.getElementById('submitBtn');
+    const switchBtn = document.getElementById('switchBtn');
+    const fullNameField = document.getElementById('fullName');
+    const switchText = document.getElementById('switchText');
 
-    if (!form) {
-        console.error("Login form not found!");
-        return;
+    function toggleMode() {
+        isLoginMode = !isLoginMode;
+
+        if (isLoginMode) {
+            titleEl.textContent = "Sign In";
+            submitBtn.textContent = "Login";
+            fullNameField.style.display = "none";
+            switchText.innerHTML = `Don't have an account? <span id="switchBtn" class="link">Sign Up</span>`;
+        } else {
+            titleEl.textContent = "Create Account";
+            submitBtn.textContent = "Sign Up";
+            fullNameField.style.display = "block";
+            switchText.innerHTML = `Already have an account? <span id="switchBtn" class="link">Sign In</span>`;
+        }
+
+        document.getElementById('switchBtn').addEventListener('click', toggleMode);
     }
+
+    switchBtn.addEventListener('click', toggleMode);
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -18,29 +39,27 @@ export function initLogin() {
 
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value.trim();
-
-        if (!email || !password) {
-            errorEl.textContent = 'Please fill in all fields';
-            return;
-        }
+        const fullName = document.getElementById('fullName').value.trim();
 
         try {
-            const data = await login(email, password);
-            saveToken(data.token);
+            if (isLoginMode) {
+                const data = await login(email, password);
+                saveToken(data.token);
+                alert("✅ Login successful!");
+            } else {
+                if (!fullName) {
+                    errorEl.textContent = "Full name is required!";
+                    return;
+                }
 
-            console.log("✅ Login successful!", data);
+                await register(email, password, fullName);
+                alert("✅ Account created successfully! Please login now.");
 
-            // TODO: Change this after creating dashboard
-            alert("Login successful! Redirecting...");
-            // navigateTo('/dashboard');   // or window.location.href = 'dashboard.html';
-
+                isLoginMode = false;
+                toggleMode();
+            }
         } catch (err) {
-            console.error(err);
-            errorEl.textContent = err.message || 'Login failed. Please try again.';
+            errorEl.textContent = err.message || "Something went wrong";
         }
     });
 }
-
-// export function initSignup() {
-//     form
-// }

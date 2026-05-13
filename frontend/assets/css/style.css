@@ -1,31 +1,101 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
 .login-container {
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    padding: 20px;
 }
 
-form {
+.auth-card {
     background: white;
-    padding: 2.5rem;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
     width: 100%;
     max-width: 400px;
+    text-align: center;
 }
 
-input, button {
+#form-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 1.8rem;
+    color: #1f2937;
+}
+
+input {
     width: 100%;
-    padding: 12px;
+    padding: 14px 16px;
     margin: 10px 0;
-    border-radius: 8px;
-    border: 1px solid #ddd;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 button {
-    background: #667eea;
+    width: 100%;
+    padding: 14px;
+    margin: 20px 0 10px 0;
+    background: #6366f1;
     color: white;
-    font-weight: bold;
+    font-weight: 600;
+    font-size: 1.05rem;
+    border: none;
+    border-radius: 10px;
     cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+button:hover {
+    background: #4f46e5;
+    transform: translateY(-2px);
+}
+
+.switch-text {
+    margin-top: 1rem;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+
+.link {
+    color: #6366f1;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+.error {
+    color: #ef4444;
+    margin-top: 12px;
+    font-size: 0.95rem;
+    min-height: 1.2em;
+}
+
+.signup-field {
+    display: none;
+}
+
+input[type="text"] {
+
 }
