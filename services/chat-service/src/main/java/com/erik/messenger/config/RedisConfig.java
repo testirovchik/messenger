@@ -1,6 +1,11 @@
 package com.erik.messenger.config;
 
 import com.erik.messenger.handler.RedisMessageSubscriber;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -20,6 +25,18 @@ public class RedisConfig {
 
     @Bean
     public RedisCacheConfiguration cacheConfiguration() {
+        // Create a custom ObjectMapper for Redis that supports LocalDateTime
+        ObjectMapper redisObjectMapper = new ObjectMapper();
+        redisObjectMapper.registerModule(new JavaTimeModule());
+        redisObjectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        
+        // CRITICAL: Redis needs type information to deserialize correctly back into objects (e.g., Chat, List<Chat>)
+        redisObjectMapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
+
         return RedisCacheConfiguration.defaultCacheConfig()
                 // 1. Set a default expiration time (e.g., 60 minutes) so Redis doesn't fill up forever
                 .entryTtl(Duration.ofMinutes(60))
@@ -33,7 +50,7 @@ public class RedisConfig {
                 )
                 // 4. Serialize Values as clean JSON!
                 .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer())
+                        RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer(redisObjectMapper))
                 );
     }
 

@@ -1,5 +1,6 @@
 package com.erik.messenger.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -17,6 +18,7 @@ public class Chat {
     private ChatType type;
 
     @Column(updatable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
     @PrePersist
@@ -26,35 +28,16 @@ public class Chat {
 
     public Chat() {}
 
-    public Long getId() {
-        return id;
-    }
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getChatTitle() { return chatTitle; }
+    public void setChatTitle(String chatTitle) { this.chatTitle = chatTitle; }
 
-    public String getChatTitle() {
-        return chatTitle;
-    }
+    public ChatType getType() { return type; }
+    public void setType(ChatType type) { this.type = type; }
 
-    public void setChatTitle(String chatTitle) {
-        this.chatTitle = chatTitle;
-    }
-
-    public ChatType getType() {
-        return type;
-    }
-
-    public void setType(ChatType type) {
-        this.type = type;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
