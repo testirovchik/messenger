@@ -1,7 +1,4 @@
-version: '3.8'
-
 services:
-
   # 1. Auth Database
   auth-postgres:
     image: postgres:15-alpine
@@ -40,8 +37,6 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      # FIX: We must configure TWO lanes for Kafka.
-      # INTERNAL for Docker containers to use, EXTERNAL for your laptop (IntelliJ/Postman) to use.
       KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
@@ -52,43 +47,42 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
-  # -----------------------------------------------------
   # 5. Auth Microservice
-  # -----------------------------------------------------
   auth-service:
-    build: ../auth-service # Tells Docker to run the Multi-Stage Dockerfile in this folder
+    build: ../auth-service
     container_name: auth-service
     ports:
       - "8080:8080"
     depends_on:
-      - auth-postgres     # Waits for the DB container to start first
+      - auth-postgres
     environment:
-      # Overrides the 'url' in application.yaml to use the Docker network
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-postgres:5432/authdb
 
-  # -----------------------------------------------------
   # 6. Chat Microservice
-  # -----------------------------------------------------
   chat-service:
-    build: .   # Tells Docker to run the Multi-Stage Dockerfile in this folder
+    build: .
     container_name: chat-service
     ports:
       - "8081:8081"
     depends_on:
-      - chat-postgres
-      - redis
-      - kafka
+      chat-postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+      localstack:
+        condition: service_healthy   # ← waits for healthcheck to pass
     environment:
-      # Overrides application.yaml properties for the Docker network
       SPRING_DATASOURCE_URL: jdbc:postgresql://chat-postgres:5432/chatdb
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      # 'host.docker.internal' tells the container to escape Docker and look at your laptop's Localstack port
-      AWS_S3_ENDPOINT: http://host.docker.internal:4566
+      AWS_S3_ENDPOINT: http://localstack:4566
+      AWS_ENDPOINT_URL_S3: http://localstack:4566
 
   # 7. Notifier Microservice
   notifier-service:
-    build: ../notifier       # Goes UP one level, then DOWN into notifier folder
+    build: ../notifier
     container_name: notifier-service
     ports:
       - "8083:8083"
@@ -96,6 +90,29 @@ services:
       - redis
       - kafka
     environment:
-      # Overrides the 'localhost' settings in application.yaml to use the Docker network
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: kafka:29092
+
+  # 8. LocalStack
+  localstack:
+    container_name: localstack
+    image: localstack/localstack:3   # ← community edition, pinned to v3
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    environment:
+      - DEBUG=1
+      - PERSISTENCE=1
+      - SERVICES=s3
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:4566/_localstack/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+
+volumes:
+  localstack_data:

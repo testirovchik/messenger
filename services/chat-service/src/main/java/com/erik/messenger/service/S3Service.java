@@ -37,17 +37,30 @@ public class S3Service {
      */
     @PostConstruct
     public void init() {
-        try {
-            s3Client.headBucket(HeadBucketRequest.builder().bucket(bucketName).build());
-            System.out.println("S3 Bucket found: " + bucketName);
-        } catch (S3Exception e) {
-            if (e.statusCode() == 404) {
-                System.out.println("S3 Bucket not found. Creating bucket: " + bucketName);
-                s3Client.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
-            } else {
-                System.err.println("Error checking S3 bucket: " + e.getMessage());
+        int maxRetries = 5;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                s3Client.headBucket(HeadBucketRequest.builder().bucket(bucketName).build());
+                System.out.println("S3 Bucket found: " + bucketName);
+                return;
+            } catch (S3Exception e) {
+                if (e.statusCode() == 404) {
+                    System.out.println("S3 Bucket not found. Creating bucket: " + bucketName);
+                    s3Client.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
+                    return;
+                }
+                System.err.println("Attempt " + attempt + " failed: " + e.getMessage());
+            } catch (Exception e) {
+                System.err.println("Attempt " + attempt + " - LocalStack not ready yet: " + e.getMessage());
+            }
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
             }
         }
+        throw new RuntimeException("Could not connect to S3 / LocalStack after " + maxRetries + " attempts");
     }
 
     public String uploadImage(MultipartFile file, Long chatId) throws IOException {
