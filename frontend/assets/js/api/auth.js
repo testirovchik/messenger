@@ -32,5 +32,6 @@ export async function getEmailFromToken(token) {
     });
 
     if (!res.ok) throw new Error('Failed to fetch email from token');
-    return res;
+    const data = await res.json();
+    return data.email;
 }

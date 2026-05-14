@@ -92,8 +92,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                 System.out.println("User " + realUserId + " securely connected and cached in Redis with email: " + email);
 
             } catch (Exception e) {
-                // If the token is fake, expired, or missing, slam the door!
-                System.err.println("HACK ATTEMPT: Invalid WebSocket Payload (Bad JWT or Missing Email).");
+                System.err.println("REGISTER FAILED → " + e.getClass().getSimpleName() + ": " + e.getMessage());
                 session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid Payload"));
             }
         }

@@ -29,30 +29,59 @@ export async function getMyChats() {
     return response.json();
 }
 
+// assets/js/api/chat.js
+
 export function initChatWebSocket(token, email) {
-    const socket = new WebSocket('ws://localhost:8081/ws-chat');
+    let socket = null;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    const RECONNECT_DELAY_MS = 3000;
 
-    socket.onopen = () => {
-        console.log('Connected to WebSocket');
-        const registerMsg = {
-            type: 'REGISTER',
-            token: token,
-            email: email
+    function connect() {
+        socket = new WebSocket('ws://localhost:8081/ws-chat');
+
+        socket.onopen = () => {
+            console.log('WebSocket connected');
+            reconnectAttempts = 0; // reset on successful connect
+            socket.send(JSON.stringify({
+                type: 'REGISTER',
+                token: `Bearer ${token}`,
+                email: email
+            }));
         };
-        socket.send(JSON.stringify(registerMsg));
-    };
 
-    socket.onmessage = (event) => {
-        console.log('Message from server:', event.data);
-    };
+        socket.onmessage = (event) => {
+            console.log('Message from server:', event.data);
+        };
 
-    socket.onerror = (error) => {
-        console.error('WebSocket Error:', error);
-    };
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
 
-    socket.onclose = () => {
-        console.log('WebSocket connection closed');
-    };
+        socket.onclose = (event) => {
+            console.warn(`WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
 
-    return socket;
+            // Don't reconnect if closed intentionally (e.g. policy violation / logout)
+            if (event.code === 1008 || event.code === 1000) {
+                console.log('WebSocket closed intentionally, not reconnecting.');
+                return;
+            }
+
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                reconnectAttempts++;
+                console.log(`Reconnecting... attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+                setTimeout(connect, RECONNECT_DELAY_MS);
+            } else {
+                console.error('Max reconnect attempts reached.');
+            }
+        };
+    }
+
+    connect();
+
+    // Return a controller so you can close it manually (e.g. on logout)
+    return {
+        close: () => socket?.close(1000, 'User logged out'),
+        getSocket: () => socket
+    };
 }

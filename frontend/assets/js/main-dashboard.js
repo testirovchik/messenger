@@ -1,4 +1,3 @@
-// assets/js/main-dashboard.js
 import { isLoggedIn, getToken } from './utils/storage.js';
 import { getMyChats, initChatWebSocket } from './api/chat.js';
 import { getEmailFromToken } from './api/auth.js';
@@ -9,12 +8,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    const token = getToken();
+    const token = String(getToken());
     const chatListEl = document.getElementById('chatList');
 
     try {
         const email = await getEmailFromToken(token);
-        initChatWebSocket(token, email);
+        console.log(token, email);
+        const wsController = initChatWebSocket(token, email);
 
         chatListEl.innerHTML = '<p>Loading chats...</p>';
         const myChats = await getMyChats();
