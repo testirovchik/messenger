@@ -21,3 +21,16 @@ export async function register(email, password, fullName) {
     if (!res.ok) throw new Error((await res.json()).message || 'Registration failed');
     return res.json();
 }
+
+export async function getEmailFromToken(token) {
+    const res = await fetch(`http://localhost:8080/auth/email-from-token`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    });
+
+    if (!res.ok) throw new Error('Failed to fetch email from token');
+    return res;
+}

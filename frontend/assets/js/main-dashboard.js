@@ -1,6 +1,7 @@
 // assets/js/main-dashboard.js
-import { isLoggedIn } from './utils/storage.js';
-import { getMyChats } from './api/chat.js';
+import { isLoggedIn, getToken } from './utils/storage.js';
+import { getMyChats, initChatWebSocket } from './api/chat.js';
+import { getEmailFromToken } from './api/auth.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!isLoggedIn()) {
@@ -8,15 +9,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    const token = getToken();
     const chatListEl = document.getElementById('chatList');
 
     try {
+        const email = await getEmailFromToken(token);
+        initChatWebSocket(token, email);
+
         chatListEl.innerHTML = '<p>Loading chats...</p>';
         const myChats = await getMyChats();
         renderChatList(myChats, chatListEl);
     } catch (err) {
         console.error(err);
-        chatListEl.innerHTML = `<p class="error">Failed to load chats: ${err.message}</p>`;
+        chatListEl.innerHTML = `<p class="error">Failed to initialize: ${err.message}</p>`;
     }
 });
 

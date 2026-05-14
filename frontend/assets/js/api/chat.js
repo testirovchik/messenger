@@ -28,3 +28,31 @@ export async function getMyChats() {
 
     return response.json();
 }
+
+export function initChatWebSocket(token, email) {
+    const socket = new WebSocket('ws://localhost:8081/ws-chat');
+
+    socket.onopen = () => {
+        console.log('Connected to WebSocket');
+        const registerMsg = {
+            type: 'REGISTER',
+            token: token,
+            email: email
+        };
+        socket.send(JSON.stringify(registerMsg));
+    };
+
+    socket.onmessage = (event) => {
+        console.log('Message from server:', event.data);
+    };
+
+    socket.onerror = (error) => {
+        console.error('WebSocket Error:', error);
+    };
+
+    socket.onclose = () => {
+        console.log('WebSocket connection closed');
+    };
+
+    return socket;
+}
