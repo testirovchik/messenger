@@ -1,0 +1,102 @@
+/* Dark Theme for Dashboard - Simple & Clean */
+
+body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Dashboard Container */
+#dashboard {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #1e2937;
+    padding: 1.2rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+header h2 {
+    margin: 0;
+    color: #f1f5f9;
+}
+
+/* Logout Button */
+#logoutBtn {
+    background: #334155;
+    color: #e2e8f0;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+#logoutBtn:hover {
+    background: #ef4444;
+}
+
+/* Chat List Container */
+#chatList {
+    padding: 10px 0;
+}
+
+/* Chat Item */
+.chat-item {
+    background: #1e2937;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid #334155;
+}
+
+.chat-item:hover {
+    background: #334155;
+    transform: translateX(6px);
+    border-color: #64748b;
+}
+
+.chat-info h4 {
+    margin: 0 0 6px 0;
+    color: #f1f5f9;
+}
+
+.chat-info p {
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.95rem;
+}
+
+.chat-info small {
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+/* Error Message */
+.error {
+    color: #f87171;
+    text-align: center;
+    padding: 30px;
+    background: #1e2937;
+    border-radius: 12px;
+}
+
+/* Loading Text */
+#chatListLoader {
+    text-align: center;
+    color: #94a3b8;
+    padding: 40px;
+}

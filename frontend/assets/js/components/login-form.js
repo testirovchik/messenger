@@ -46,6 +46,7 @@ export function initAuth() {
                 const data = await login(email, password);
                 saveToken(data.token);
                 alert("✅ Login successful!");
+                window.location.href="dashboard.html";
             } else {
                 if (!fullName) {
                     errorEl.textContent = "Full name is required!";
