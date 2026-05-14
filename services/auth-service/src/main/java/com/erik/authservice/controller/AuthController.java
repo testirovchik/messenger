@@ -3,6 +3,7 @@ package com.erik.authservice.controller;
 import com.erik.authservice.dto.LoginRequest;
 import com.erik.authservice.dto.LoginResponse;
 import com.erik.authservice.dto.RegistrationRequest;
+import com.erik.authservice.dto.UserEmailResponse;
 import com.erik.authservice.exception.InvalidEmailOrPasswordException;
 import com.erik.authservice.exception.UserAlreadyExistsException;
 import com.erik.authservice.exception.UserNotFoundException;
@@ -90,11 +91,11 @@ public class AuthController {
             @ApiResponse(responseCode = "404", description = "User not found")
     })
     @GetMapping("/email-from-token")
-    public ResponseEntity<String> getEmailFromToken(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<UserEmailResponse> getEmailFromToken(@RequestHeader("Authorization") String authHeader) {
         String token = authHeader.replace("Bearer ", "");
         String userId = jwtService.extractUserId(token);
         User user = userRepository.findById(Long.parseLong(userId))
                 .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
-        return ResponseEntity.ok(user.getEmail());
+        return ResponseEntity.ok(new UserEmailResponse(user.getEmail()));
     }
 }
