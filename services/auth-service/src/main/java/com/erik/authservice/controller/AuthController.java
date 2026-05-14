@@ -5,6 +5,7 @@ import com.erik.authservice.dto.LoginResponse;
 import com.erik.authservice.dto.RegistrationRequest;
 import com.erik.authservice.exception.InvalidEmailOrPasswordException;
 import com.erik.authservice.exception.UserAlreadyExistsException;
+import com.erik.authservice.exception.UserNotFoundException;
 import com.erik.authservice.model.User;
 import com.erik.authservice.repository.UserRepository;
 import com.erik.authservice.service.JwtService;
@@ -81,5 +82,19 @@ public class AuthController {
         }
         String token = jwtService.generateToken(user.getId().toString());
         return new LoginResponse(token);
+    }
+
+    @Operation(summary = "Get user email from token", description = "Extracts user ID from the provided JWT token and returns the corresponding email.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved email"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    @GetMapping("/email-from-token")
+    public ResponseEntity<String> getEmailFromToken(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String userId = jwtService.extractUserId(token);
+        User user = userRepository.findById(Long.parseLong(userId))
+                .orElseThrow(() -> new UserNotFoundException("User not found with id: " + userId));
+        return ResponseEntity.ok(user.getEmail());
     }
 }
